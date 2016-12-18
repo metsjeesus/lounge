@@ -11,6 +11,7 @@ describe("Network", function() {
 
 		it("should produce an valid object", function() {
 			var network = new Network({
+				awayMessage: "I am away",
 				name: "networkName",
 				channels: [
 					new Chan({name: "#thelounge"}),
@@ -22,6 +23,7 @@ describe("Network", function() {
 			network.setNick("chillin`");
 
 			expect(network.export()).to.deep.equal({
+				awayMessage: "I am away",
 				name: "networkName",
 				host: "",
 				port: 6667,
