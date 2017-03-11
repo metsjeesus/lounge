@@ -1285,6 +1285,28 @@ $(function() {
 	});
 
 	Mousetrap.bind([
+		"pageup",
+		"pagedown"
+	], function(e, key) {
+		let container = windows.find(".window.active");
+
+		// Chat windows scroll message container
+		if (container.attr("id") === "chat-container") {
+			container = container.find(".chan.active .chat");
+		}
+
+		container = container.get(0);
+
+		if (key === "pageup") {
+			container.scrollTop -= container.clientHeight;
+		} else {
+			container.scrollTop += container.clientHeight;
+		}
+
+		return false;
+	});
+
+	Mousetrap.bind([
 		"command+up",
 		"command+down",
 		"ctrl+up",
