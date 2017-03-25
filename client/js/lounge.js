@@ -112,6 +112,26 @@ $(function() {
 		});
 	});
 
+	// server signal to update connected client list
+	socket.on("update-clients-list", function(data) {
+		$("#connection_list").empty();
+		for (var i = 0 ; i < data.connection.length ; i++) {
+			data.connection[i].id = i;
+			$("#connection_list").append(
+				templates.connection_list(data.connection[i])
+			);
+			$("#connection_" + i).on("click" , function(input) {
+				socket.emit("remote-sign-out", {socket_id: input.target.value});
+			});
+		}
+	});
+
+	// server signal to remotely sign out
+	socket.on("sign-out", function() {
+		window.localStorage.removeItem("token");
+		location.reload();
+	});
+
 	socket.on("connecting", function() {
 		$("#loading-page-message").text("Connecting…");
 	});
