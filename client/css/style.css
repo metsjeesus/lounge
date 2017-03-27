@@ -172,6 +172,7 @@ kbd {
 #form #cycle-nicks:before,
 #form #submit:before,
 #chat .invite .from:before,
+#chat .condensed .expander:before,
 #chat .join .from:before,
 #chat .kick .from:before,
 #chat .part .from:before,
@@ -215,6 +216,15 @@ kbd {
 #footer .settings:before { content: "\f013"; /* http://fontawesome.io/icon/cog/ */ }
 #footer .help:before { content: "\f059"; /* http://fontawesome.io/icon/question/ */ }
 #footer .sign-out:before { content: "\f011"; /* http://fontawesome.io/icon/power-off/ */ }
+#connection_list .connection-sign-out:before { content: "\f08b"; /* http://fontawesome.io/icon/sign-out/ */ }
+
+#connection_list .connection-sign-out {
+	border: 1px solid transparent;
+	border-radius: 2px;
+	color: #99a2b4;
+	cursor: pointer;
+	font-size: 14px;
+}
 
 #form #cycle-nicks:before { content: "\f007"; /* http://fontawesome.io/icon/user/ */ }
 
@@ -256,6 +266,22 @@ kbd {
 #chat .nick .from:before {
 	content: "\f007"; /* http://fontawesome.io/icon/user/ */
 	color: #2ecc40;
+}
+
+#chat .condensed {
+	cursor: pointer;
+}
+
+#chat .condensed div {
+	cursor: default;
+}
+
+#chat .condensed .expander:before {
+	content: "\f0d7"; /* http://fontawesome.io/icon/caret-down/ */
+}
+
+#chat .condensed.closed .expander:before {
+	content: "\f0da"; /* http://fontawesome.io/icon/caret-right/ */
 }
 
 #chat .join .from:before {
@@ -748,6 +774,10 @@ kbd {
 	display: block;
 }
 
+.condensed.closed .msg {
+	display: none;
+}
+
 #windows .header .topic,
 .messages .msg,
 .sidebar {
@@ -1053,6 +1083,7 @@ kbd {
 	display: none !important;
 }
 
+#chat .condensed .text,
 #chat .join .text,
 #chat .kick .text,
 #chat .mode .text,
@@ -1081,11 +1112,19 @@ kbd {
 }
 
 #chat .error,
-#chat .error .from,
-#chat .channel .highlight .from,
-#chat .channel .highlight .text,
-#chat .channel .highlight .user {
+#chat .error .from {
 	color: #f00;
+}
+
+#chat .channel .highlight .time,
+#chat .channel .highlight .from {
+	color: #fff;
+	background-color: #ff8a80;
+	border-color: #ff8a80;
+}
+
+#chat .channel .highlight .from .user {
+	color: #fff;
 }
 
 #chat .msg.toggle .time {
