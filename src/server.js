@@ -69,6 +69,15 @@ module.exports = function() {
 in ${config.public ? "public" : "private"} mode`);
 	});
 
+	if (!!config.https.http_redirect_port) {
+		// Redirect from httpt to https
+		var http = require('http');
+		http.createServer(function (req, res) {
+		    res.writeHead(301, { "Location": "https://" + req.headers['host'] + req.url });
+		    res.end();
+		}).listen(config.https.http_redirect_port);
+	}
+	
 	if (!config.public && (config.ldap || {}).enable) {
 		authFunction = ldapAuth;
 	}
