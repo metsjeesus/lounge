@@ -368,7 +368,6 @@ function auth(data) {
 	}
 }
 
-
 function sendConnectionInfo(client) {
 	// send messages to connected user clients
 	// get sockets
@@ -435,5 +434,4 @@ function hostnamePromise(data) {
 			}
 		});
 	});
-
 }
