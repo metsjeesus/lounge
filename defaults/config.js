@@ -270,7 +270,7 @@ module.exports = {
 		// @default  false
 		//
 		enable: false,
-		
+
 		//
 		// Enable HTTP to HTTPS redirect port.
 		//
