@@ -65,6 +65,7 @@ function Client(manager, name, config) {
 		config = {};
 	}
 	_.merge(this, {
+		awayMessage: "",
 		lastActiveChannel: -1,
 		attachedClients: {},
 		config: config,
@@ -158,7 +159,8 @@ Client.prototype.connect = function(args) {
 			}
 
 			channels.push(new Chan({
-				name: chan.name
+				name: chan.name,
+				key: chan.key || "",
 			}));
 		});
 
@@ -529,6 +531,16 @@ Client.prototype.clientAttach = function(socketId) {
 
 	client.attachedClients[socketId] = client.lastActiveChannel;
 
+	if (client.awayMessage && _.size(client.attachedClients) === 0) {
+		client.networks.forEach(function(network) {
+			// Only remove away on client attachment if
+			// there is no away message on this network
+			if (!network.awayMessage) {
+				network.irc.raw("AWAY");
+			}
+		});
+	}
+
 	// Update old networks to store ip and hostmask
 	client.networks.forEach(network => {
 		if (!network.ip) {
@@ -552,7 +564,19 @@ Client.prototype.clientAttach = function(socketId) {
 };
 
 Client.prototype.clientDetach = function(socketId) {
+	const client = this;
+
 	delete this.attachedClients[socketId];
+
+	if (client.awayMessage && _.size(client.attachedClients) === 0) {
+		client.networks.forEach(function(network) {
+			// Only set away on client deattachment if
+			// there is no away message on this network
+			if (!network.awayMessage) {
+				network.irc.raw("AWAY", client.awayMessage);
+			}
+		});
+	}
 };
 
 Client.prototype.save = _.debounce(function SaveClient() {
@@ -562,6 +586,7 @@ Client.prototype.save = _.debounce(function SaveClient() {
 
 	const client = this;
 	let json = {};
+	json.awayMessage = client.awayMessage;
 	json.networks = this.networks.map(n => n.export());
 	client.manager.updateUser(client.name, json);
 }, 1000, {maxWait: 10000});

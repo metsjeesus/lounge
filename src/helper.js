@@ -6,7 +6,7 @@ var path = require("path");
 var os = require("os");
 var fs = require("fs");
 var net = require("net");
-var bcrypt = require("bcrypt-nodejs");
+var bcrypt = require("bcryptjs");
 require("string.prototype.at");
 
 var Helper = {
@@ -128,7 +128,7 @@ function passwordHash(password) {
 }
 
 function passwordCompare(password, expected) {
-	return bcrypt.compareSync(password, expected);
+	return bcrypt.compare(password, expected);
 }
 
 function forceUTF8(text) {
