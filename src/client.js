@@ -80,7 +80,12 @@ function Client(manager, name, config) {
 
 	if (client.name && !client.config.token) {
 		client.updateToken(function(token) {
-			client.manager.updateUser(client.name, {token: token});
+			client.manager.updateUserPromise({
+				name: client.name,
+				opts: {
+					token: token
+				}
+			});
 		});
 	}
 
@@ -284,34 +289,42 @@ Client.prototype.connect = function(args) {
 	client.save();
 };
 
-Client.prototype.updateToken = function(callback) {
-	var client = this;
-
-	crypto.randomBytes(48, function(err, buf) {
-		if (err) {
-			throw err;
-		}
-
-		callback(client.config.token = buf.toString("hex"));
+Client.prototype.updateTokenPromise = function() {
+	let client = this;
+	return new Promise((resolve) => {
+		crypto.randomBytes(48, (err, buf) => {
+			if (err) {
+				throw err;
+			} else {
+				resolve(client.config.token = buf.toString("hex"));
+			}
+		});
 	});
 };
 
-Client.prototype.setPassword = function(hash, callback) {
-	var client = this;
-
-	client.updateToken(function(token) {
-		client.manager.updateUser(client.name, {
-			token: token,
-			password: hash
-		}, function(err) {
-			if (err) {
-				log.error("Failed to update password of", client.name, err);
-				return callback(false);
-			}
-
-			client.config.password = hash;
-			return callback(true);
-		});
+Client.prototype.setPasswordPromise = function(hash) {
+	let client = this;
+	return new Promise((resolve, reject) => {
+		client.updateTokenPromise()
+			.then((token) => {
+				client.manager.updateUserPromise({
+					name: client.name,
+					opts: {
+						token: token,
+						password: hash
+					}
+				})
+					.then(
+					(err) => {
+						if (!err) {
+							log.error("Failed to update password of", client.name, err);
+							reject(false);
+						} else {
+							client.config.password = hash;
+							resolve(true);
+						}
+					});
+			});
 	});
 };
 
@@ -544,5 +557,9 @@ Client.prototype.save = _.debounce(function SaveClient() {
 	let json = {};
 	json.awayMessage = client.awayMessage;
 	json.networks = this.networks.map(n => n.export());
-	client.manager.updateUser(client.name, json);
+	client.manager.updateUserPromise({
+		name: client.name,
+		opts: json
+	}
+	);
 }, 1000, {maxWait: 10000});

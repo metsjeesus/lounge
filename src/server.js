@@ -205,18 +205,20 @@ function init(socket, client) {
 							}
 							const hash = Helper.password.hash(p1);
 
-							client.setPassword(hash, success => {
-								const obj = {};
-
-								if (success) {
-									obj.success = "Successfully updated your password, all your other sessions were logged out";
-									obj.token = client.config.token;
-								} else {
-									obj.error = "Failed to update your password";
-								}
-
-								socket.emit("change-password", obj);
-							});
+							client.setPasswordPromise(hash)
+								.then(
+									() => { // resolved
+										const obj = {};
+										obj.success = "Successfully updated your password, all your other sessions were logged out";
+										obj.token = client.config.token;
+										socket.emit("change-password", obj);
+									},
+									() => { // rejeted
+										const obj = {};
+										obj.error = "Failed to update your password";
+										socket.emit("change-password", obj);
+									}
+								);
 						}).catch(error => {
 							log.error(`Error while checking users password. Error: ${error}`);
 						});
@@ -280,11 +282,14 @@ function localAuth(client, user, password, callback) {
 			if (Helper.password.requiresUpdate(client.config.password)) {
 				const hash = Helper.password.hash(password);
 
-				client.setPassword(hash, success => {
-					if (success) {
-						log.info(`User ${colors.bold(client.name)} logged in and their hashed password has been updated to match new security requirements`);
-					}
-				});
+				client.setPasswordPromise(hash)
+					.then(
+						(success) => {
+							if (success) {
+								log.info(`User ${colors.bold(client.name)} logged in and their hashed password has been updated to match new security requirements`);
+							}
+						}
+					);
 			}
 			callback(matching);
 		}).catch(error => {
@@ -344,7 +349,7 @@ function auth(data) {
 			if (success) {
 				if (!client) {
 					// LDAP just created a user
-					manager.loadUser(data.user);
+					manager.loadUser({name: data.user});
 					client = manager.findClient(data.user);
 				}
 				if (Helper.config.webirc !== null && !client.config.ip) {
