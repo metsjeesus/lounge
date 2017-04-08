@@ -65,6 +65,7 @@ function Client(manager, name, config) {
 		config = {};
 	}
 	_.merge(this, {
+		awayMessage: "",
 		lastActiveChannel: -1,
 		attachedClients: {},
 		config: config,
@@ -79,7 +80,12 @@ function Client(manager, name, config) {
 
 	if (client.name && !client.config.token) {
 		client.updateToken(function(token) {
-			client.manager.updateUser(client.name, {token: token});
+			client.manager.updateUserPromise({
+				name: client.name,
+				opts: {
+					token: token
+				}
+			});
 		});
 	}
 
@@ -158,7 +164,8 @@ Client.prototype.connect = function(args) {
 			}
 
 			channels.push(new Chan({
-				name: chan.name
+				name: chan.name,
+				key: chan.key || "",
 			}));
 		});
 
@@ -263,11 +270,55 @@ Client.prototype.connect = function(args) {
 		auto_reconnect_max_retries: 360, // At least one hour (plus timeouts) worth of reconnections
 		ping_interval: 0, // Disable client ping timeouts due to buggy implementation
 		webirc: webirc,
+		encoding: "iso-8859-1"
 	});
 
 	network.irc.requestCap([
 		"znc.in/self-message", // Legacy echo-message for ZNc
 	]);
+
+	network.irc.connection.processReadBuffer = function(continue_processing) {
+    // If we already have the read buffer being iterated through, don't start
+    // another one.
+		if (this.reading_buffer && !continue_processing) {
+			return;
+		}
+		var that = this;
+		var lines_per_js_tick = 40;
+		var processed_lines = 0;
+		var line;
+		var message;
+
+		this.reading_buffer = true;
+
+		while (processed_lines < lines_per_js_tick && this.read_buffer.length > 0) {
+			line = Helper.forceUTF8(this.read_buffer.shift());
+			if (!line) {
+				continue;
+			}
+
+			message = Helper.parseIrcLine(line);
+
+			if (!message) {
+            // A malformed IRC line
+				continue;
+			}
+			this.emit("raw", {line: line, from_server: true});
+			this.emit("message", message, line);
+
+			processed_lines++;
+		}
+
+    // If we still have items left in our buffer then continue reading them in a few ticks
+		if (this.read_buffer.length > 0) {
+			this.setTimeout(function() {
+				that.processReadBuffer(true);
+			}, 1);
+		} else {
+			this.reading_buffer = false;
+		}
+	};
+
 
 	events.forEach(plugin => {
 		var path = "./plugins/irc-events/" + plugin;
@@ -282,34 +333,42 @@ Client.prototype.connect = function(args) {
 	client.save();
 };
 
-Client.prototype.updateToken = function(callback) {
-	var client = this;
-
-	crypto.randomBytes(48, function(err, buf) {
-		if (err) {
-			throw err;
-		}
-
-		callback(client.config.token = buf.toString("hex"));
+Client.prototype.updateTokenPromise = function() {
+	let client = this;
+	return new Promise((resolve) => {
+		crypto.randomBytes(48, (err, buf) => {
+			if (err) {
+				throw err;
+			} else {
+				resolve(client.config.token = buf.toString("hex"));
+			}
+		});
 	});
 };
 
-Client.prototype.setPassword = function(hash, callback) {
-	var client = this;
-
-	client.updateToken(function(token) {
-		client.manager.updateUser(client.name, {
-			token: token,
-			password: hash
-		}, function(err) {
-			if (err) {
-				log.error("Failed to update password of", client.name, err);
-				return callback(false);
-			}
-
-			client.config.password = hash;
-			return callback(true);
-		});
+Client.prototype.setPasswordPromise = function(hash) {
+	let client = this;
+	return new Promise((resolve, reject) => {
+		client.updateTokenPromise()
+			.then((token) => {
+				client.manager.updateUserPromise({
+					name: client.name,
+					opts: {
+						token: token,
+						password: hash
+					}
+				})
+					.then(
+					(err) => {
+						if (!err) {
+							log.error("Failed to update password of", client.name, err);
+							reject(false);
+						} else {
+							client.config.password = hash;
+							resolve(true);
+						}
+					});
+			});
 	});
 };
 
@@ -335,6 +394,14 @@ Client.prototype.inputLine = function(data) {
 
 	// This is either a normal message or a command escaped with a leading '/'
 	if (text.charAt(0) !== "/" || text.charAt(1) === "/") {
+		if (target.chan.type === Chan.Type.LOBBY) {
+			target.chan.pushMessage(this, new Msg({
+				type: Msg.Type.ERROR,
+				text: "Messages can not be sent to lobbies."
+			}));
+			return;
+		}
+
 		text = "say " + text.replace(/^\//, "");
 	} else {
 		text = text.substr(1);
@@ -483,6 +550,16 @@ Client.prototype.clientAttach = function(socketId) {
 
 	client.attachedClients[socketId] = client.lastActiveChannel;
 
+	if (client.awayMessage && _.size(client.attachedClients) === 0) {
+		client.networks.forEach(function(network) {
+			// Only remove away on client attachment if
+			// there is no away message on this network
+			if (!network.awayMessage) {
+				network.irc.raw("AWAY");
+			}
+		});
+	}
+
 	// Update old networks to store ip and hostmask
 	client.networks.forEach(network => {
 		if (!network.ip) {
@@ -506,7 +583,19 @@ Client.prototype.clientAttach = function(socketId) {
 };
 
 Client.prototype.clientDetach = function(socketId) {
+	const client = this;
+
 	delete this.attachedClients[socketId];
+
+	if (client.awayMessage && _.size(client.attachedClients) === 0) {
+		client.networks.forEach(function(network) {
+			// Only set away on client deattachment if
+			// there is no away message on this network
+			if (!network.awayMessage) {
+				network.irc.raw("AWAY", client.awayMessage);
+			}
+		});
+	}
 };
 
 Client.prototype.save = _.debounce(function SaveClient() {
@@ -516,6 +605,11 @@ Client.prototype.save = _.debounce(function SaveClient() {
 
 	const client = this;
 	let json = {};
+	json.awayMessage = client.awayMessage;
 	json.networks = this.networks.map(n => n.export());
-	client.manager.updateUser(client.name, json);
+	client.manager.updateUserPromise({
+		name: client.name,
+		opts: json
+	}
+	);
 }, 1000, {maxWait: 10000});

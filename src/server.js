@@ -11,12 +11,16 @@ var dns = require("dns");
 var Helper = require("./helper");
 var ldap = require("ldapjs");
 var colors = require("colors/safe");
+const Identification = require("./identification");
+let net = require("net");
 
 var manager = null;
 var authFunction = localAuth;
 
 module.exports = function() {
-	manager = new ClientManager();
+	log.info(`The Lounge ${colors.green(Helper.getVersion())} \
+(node ${colors.green(process.versions.node)} on ${colors.green(process.platform)} ${process.arch})`);
+	log.info(`Configuration file: ${colors.green(Helper.CONFIG_PATH)}`);
 
 	if (!fs.existsSync("client/js/bundle.js")) {
 		log.error(`The client application was not built. Run ${colors.bold("NODE_ENV=production npm run build")} to resolve this.`);
@@ -29,6 +33,45 @@ module.exports = function() {
 		.use(express.static("client"));
 
 	var config = Helper.config;
+
+	let http = require("http");
+	let https = require("spdy");
+	let httpx = {};
+	httpx.createServer = (opts, handler) => {
+		let server = net.createServer(socket => {
+			socket.once("data", buffer => {
+				// Pause the socket
+				socket.pause();
+
+				// Determine if this is an HTTP(s) request
+				let byte = buffer[0];
+
+				let protocol;
+				if (byte === 22) {
+					protocol = "https";
+				} else if (32 < byte && byte < 127) {
+					protocol = "http";
+				}
+
+				let proxy = server[protocol];
+				if (proxy) {
+					// Push the buffer back onto the front of the data stream
+					socket.unshift(buffer);
+
+					// Emit the socket to the HTTP(s) server
+					proxy.emit("connection", socket);
+				}
+
+				// Resume the socket data stream
+				socket.resume();
+			});
+		});
+
+		server.http = http.createServer(handler);
+		server.https = https.createServer(opts, handler);
+		return server;
+	};
+
 	var server = null;
 
 	if (config.public && (config.ldap || {}).enable) {
@@ -36,10 +79,10 @@ module.exports = function() {
 	}
 
 	if (!config.https.enable) {
-		server = require("http");
-		server = server.createServer(app).listen(config.port, config.host);
+		server = http;
+		server = server.createServer(app);
 	} else {
-		server = require("spdy");
+		server = httpx;
 		const keyPath = Helper.expandHome(config.https.key);
 		const certPath = Helper.expandHome(config.https.certificate);
 		if (!config.https.key.length || !fs.existsSync(keyPath)) {
@@ -53,22 +96,24 @@ module.exports = function() {
 		server = server.createServer({
 			key: fs.readFileSync(keyPath),
 			cert: fs.readFileSync(certPath)
-		}, app).listen(config.port, config.host);
+		}, app);
 	}
 
-	if (config.identd.enable) {
-		if (manager.identHandler) {
-			log.warn("Using both identd and oidentd at the same time!");
-		}
-
-		require("./identd").start(config.identd.port);
-	}
+	server.listen({
+		port: config.port,
+		host: config.host,
+	}, () => {
+		const protocol = config.https.enable ? "https" : "http";
+		var address = server.address();
+		log.info(`Available on ${colors.green(protocol + "://" + address.address + ":" + address.port + "/")} \
+in ${config.public ? "public" : "private"} mode`);
+	});
 
 	if (!config.public && (config.ldap || {}).enable) {
 		authFunction = ldapAuth;
 	}
 
-	var sockets = io(server, {
+	var sockets = io(config.https.enable ? server.https : server, {
 		serveClient: false,
 		transports: config.transports
 	});
@@ -81,25 +126,11 @@ module.exports = function() {
 		}
 	});
 
-	manager.sockets = sockets;
+	manager = new ClientManager();
 
-	const protocol = config.https.enable ? "https" : "http";
-	const host = config.host || "*";
-
-	log.info(`The Lounge ${colors.green(Helper.getVersion())} is now running \
-using node ${colors.green(process.versions.node)} on ${colors.green(process.platform)} (${process.arch})`);
-	log.info(`Configuration file: ${colors.green(Helper.CONFIG_PATH)}`);
-	log.info(`Available on ${colors.green(protocol + "://" + host + ":" + config.port + "/")} \
-in ${config.public ? "public" : "private"} mode`);
-	log.info("Press Ctrl-C to stop\n");
-
-	if (!config.public) {
-		if ("autoload" in config) {
-			log.warn(`Autoloading users is now always enabled. Please remove the ${colors.yellow("autoload")} option from your configuration file.`);
-		}
-
-		manager.autoloadUsers();
-	}
+	new Identification((identHandler) => {
+		manager.init(identHandler, sockets);
+	});
 };
 
 function getClientIp(req) {
@@ -115,6 +146,12 @@ function getClientIp(req) {
 }
 
 function allRequests(req, res, next) {
+	if (Helper.config.hostname && Helper.config.hostname !== req.hostname) {
+		return res.redirect(302, `http://${Helper.config.hostname}${req.originalUrl}`);
+	}
+	if (Helper.config.https.enable && req.protocol === "http") {
+		return res.redirect(302, `https://${req.hostname}${req.originalUrl}`);
+	}
 	res.setHeader("X-Content-Type-Options", "nosniff");
 	return next();
 }
@@ -140,7 +177,8 @@ function index(req, res, next) {
 			return css.slice(0, -4);
 		});
 		var template = _.template(file);
-		res.setHeader("Content-Security-Policy", "default-src *; connect-src 'self' ws: wss:; style-src * 'unsafe-inline'; script-src 'self'; child-src 'self'; object-src 'none'; form-action 'none'; referrer no-referrer;");
+		res.setHeader("Content-Security-Policy", "default-src *; connect-src 'self' ws: wss:; style-src * 'unsafe-inline'; script-src 'self'; child-src 'self'; object-src 'none'; form-action 'none';");
+		res.setHeader("Referrer-Policy", "no-referrer");
 		res.setHeader("Content-Type", "text/html");
 		res.writeHead(200);
 		res.end(template(data));
@@ -201,27 +239,35 @@ function init(socket, client) {
 						});
 						return;
 					}
-					if (!Helper.password.compare(old || "", client.config.password)) {
-						socket.emit("change-password", {
-							error: "The current password field does not match your account password"
+
+					Helper.password
+						.compare(old || "", client.config.password)
+						.then(matching => {
+							if (!matching) {
+								socket.emit("change-password", {
+									error: "The current password field does not match your account password"
+								});
+								return;
+							}
+							const hash = Helper.password.hash(p1);
+
+							client.setPasswordPromise(hash)
+								.then(
+									() => { // resolved
+										const obj = {};
+										obj.success = "Successfully updated your password, all your other sessions were logged out";
+										obj.token = client.config.token;
+										socket.emit("change-password", obj);
+									},
+									() => { // rejeted
+										const obj = {};
+										obj.error = "Failed to update your password";
+										socket.emit("change-password", obj);
+									}
+								);
+						}).catch(error => {
+							log.error(`Error while checking users password. Error: ${error}`);
 						});
-						return;
-					}
-
-					var hash = Helper.password.hash(p1);
-
-					client.setPassword(hash, function(success) {
-						var obj = {};
-
-						if (success) {
-							obj.success = "Successfully updated your password, all your other sessions were logged out";
-							obj.token = client.config.token;
-						} else {
-							obj.error = "Failed to update your password";
-						}
-
-						socket.emit("change-password", obj);
-					});
 				}
 			);
 		}
@@ -276,19 +322,25 @@ function localAuth(client, user, password, callback) {
 		return callback(false);
 	}
 
-	var result = Helper.password.compare(password, client.config.password);
+	Helper.password
+		.compare(password, client.config.password)
+		.then(matching => {
+			if (Helper.password.requiresUpdate(client.config.password)) {
+				const hash = Helper.password.hash(password);
 
-	if (result && Helper.password.requiresUpdate(client.config.password)) {
-		var hash = Helper.password.hash(password);
-
-		client.setPassword(hash, function(success) {
-			if (success) {
-				log.info(`User ${colors.bold(client.name)} logged in and their hashed password has been updated to match new security requirements`);
+				client.setPasswordPromise(hash)
+					.then(
+						(success) => {
+							if (success) {
+								log.info(`User ${colors.bold(client.name)} logged in and their hashed password has been updated to match new security requirements`);
+							}
+						}
+					);
 			}
+			callback(matching);
+		}).catch(error => {
+			log.error(`Error while checking users password. Error: ${error}`);
 		});
-	}
-
-	return callback(result);
 }
 
 function ldapAuth(client, user, password, callback) {
@@ -343,7 +395,7 @@ function auth(data) {
 			if (success) {
 				if (!client) {
 					// LDAP just created a user
-					manager.loadUser(data.user);
+					manager.loadUser({name: data.user});
 					client = manager.findClient(data.user);
 				}
 				if (Helper.config.webirc !== null && !client.config.ip) {
