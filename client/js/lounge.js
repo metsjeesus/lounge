@@ -207,7 +207,7 @@ $(function() {
 			data.msg.highlight = true;
 		}
 
-		if (handledTypes.indexOf(type) !== -1) {
+		if (constants.handledTypes.indexOf(type) !== -1) {
 			data.msg.template = "actions/" + type;
 			template = "msg_action";
 		} else if (type === "unhandled") {
@@ -239,8 +239,8 @@ $(function() {
 	function updateCondensedText(condensed, addedTypes) {
 		var obj = {};
 
-		for (var i in condensedTypes) {
-			var msgType = condensedTypes[i];
+		for (var i in constants.condensedTypes) {
+			var msgType = constants.condensedTypes[i];
 			obj[msgType] = condensed.data(msgType) || 0;
 		}
 
@@ -252,8 +252,8 @@ $(function() {
 
 		var text = "";
 
-		for (var j in condensedTypes) {
-			var messageType = condensedTypes[j];
+		for (var j in constants.condensedTypes) {
+			var messageType = constants.condensedTypes[j];
 			if (obj[messageType]) {
 				text += text === "" ? "" : ", ";
 				text += obj[messageType] + " " + messageType;
@@ -267,8 +267,8 @@ $(function() {
 	}
 
 	function appendMessage(container, chan, chanType, messageType, msg) {
-		if (condensedTypes.indexOf(messageType) !== -1 && chanType !== "lobby") {
-			var condensedTypesClasses = "." + condensedTypes.join(", .");
+		if (constants.condensedTypes.indexOf(messageType) !== -1 && chanType !== "lobby") {
+			var condensedTypesClasses = "." + constants.condensedTypes.join(", .");
 			var lastChild = container.children("div.msg").last();
 			var lastDate = (new Date(lastChild.attr("data-time"))).toDateString();
 			var msgDate = (new Date(msg.attr("data-time"))).toDateString();

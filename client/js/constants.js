@@ -29,9 +29,34 @@ const commands = [
 	"/slap",
 	"/topic",
 	"/voice",
-	"/whois"
+	"/whois",
+];
+
+const handledTypes = [
+	"invite",
+	"join",
+	"mode",
+	"kick",
+	"nick",
+	"part",
+	"quit",
+	"topic",
+	"topic_set_by",
+	"action",
+	"whois",
+	"ctcp",
+	"channel_list",
+];
+var condensedTypes = [
+	"join",
+	"mode",
+	"nick",
+	"part",
+	"quit",
 ];
 
 module.exports = {
-	commands: commands
+	commands: commands,
+	condensedTypes: condensedTypes,
+	handledTypes: handledTypes,
 };
