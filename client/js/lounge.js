@@ -236,66 +236,213 @@ $(function() {
 		return msg;
 	}
 
+	function moveCondensedNameData(input) {
+		var list = input.list || undefined;
+		var msg = input.msg || undefined;
+		var empty = input.empty || [];
+		var fill = input.fill || [];
+		if (list === undefined || msg === undefined) {
+			return {};
+		}
+
+		empty.forEach((type) => {
+			list[type] = list[type] || [];
+			list[type].splice(list[type].findIndex((m)=>{
+				return m.from === msg.from;
+			}), 1);
+		});
+		fill.forEach((type) => {
+			list[type] = list[type] || [];
+			list[type].push(msg);
+		});
+		return list;
+	}
+
+	function groupCondensedMessages(input) {
+		var messages = input.messages || [];
+		var output = {};
+		// generate empty array output of every type
+		for (var j in constants.condensedTypes) {
+			output[constants.condensedTypes[j]] = [];
+		}
+		// message order is imporant!
+		var length = messages.length;
+		for (var i = 0; i < length ; i++) {
+			var msg = messages[i];
+			var type = msg.type;
+			// push message to type list
+			output[type].push(msg);
+			// modify lists on specific combinations
+			if (type === "quit" || type === "part") {
+				// join/part->quit => ripout
+				if (output.join.find((m)=>{
+					return m.from === msg.from;
+				})) {
+					output = moveCondensedNameData({
+						msg: msg,
+						list: output,
+						empty: ["quit", "part", "popin", "join"],
+						fill: ["ripout"]
+					});
+				}
+
+				// popin->quit => ripout
+				if (output.popin.find((m)=>{
+					return m.from === msg.from;
+				})) {
+					output = moveCondensedNameData({
+						msg: msg,
+						list: output,
+						empty: ["quit", "part", "popin"],
+						fill: ["ripout"]
+					});
+				}
+			} else if (type === "join") {
+				// quit->join => popin
+				if (output.quit.find((m)=>{
+					return m.from === msg.from;
+				})) {
+					output = moveCondensedNameData({
+						msg: msg,
+						list: output,
+						empty: ["join", "ripout", "part", "quit"],
+						fill: ["popin"]
+					});
+				}
+				// part->join => popin
+				if (output.part.find((m)=>{
+					return m.from === msg.from;
+				})) {
+					output = moveCondensedNameData({
+						msg: msg,
+						list: output,
+						empty: ["join", "ripout", "part"],
+						fill: ["popin"]
+					});
+				}
+				// ripout->join => popin
+				if (output.ripout.find((m)=>{
+					return m.from === msg.from;
+				})) {
+					output = moveCondensedNameData({
+						msg: msg,
+						list: output,
+						empty: ["join", "ripout"],
+						fill: ["popin"]
+					});
+				}
+			}
+		}
+		return output;
+	}
+
 	function updateCondensedText(condensed, addedTypes) {
-		var obj = {};
-
-		for (var i in constants.condensedTypes) {
-			var msgType = constants.condensedTypes[i];
-			obj[msgType] = condensed.data(msgType) || 0;
+		var condensedMsg = condensed.data("condensedMsg") || [];
+		// for in loop loses order!
+		for (var k = addedTypes.length - 1; k >= 0; k--) {
+			// store condensed messages
+			condensedMsg.push($.extend({}, addedTypes[k].msg, {type: addedTypes[k].type}));
+			condensed.data("condensedMsg", condensedMsg);
 		}
+		var groupedMessages = groupCondensedMessages({messages: condensedMsg});
 
-		for (var k in addedTypes) {
-			var added = addedTypes[k];
-			obj[added]++;
-			condensed.data(added, obj[added]);
-		}
+		var plurals = {
+			join: {
+				plural: "joined"
+			},
+			mode: {
+				plural: "changed mode"
+			},
+			nick: {
+				plural: "changed name"
+			},
+			part: {
+				plural: "leaved",
+			},
+			quit: {
+				plural: "quit",
+			},
+			popin: {
+				plural: "popped in",
+			},
+			ripout: {
+				plural: "ripped out",
+			}
+		};
 
 		var text = "";
+		var maxnames = 3;
 
-		for (var j in constants.condensedTypes) {
-			var messageType = constants.condensedTypes[j];
-			if (obj[messageType]) {
-				text += text === "" ? "" : ", ";
-				text += obj[messageType] + " " + messageType;
-				if (messageType === "nick" || messageType === "mode") {
-					text += " change";
+		for (var type in groupedMessages) {
+			var list = groupedMessages[type];
+			var count = list.length;
+			if (count) {
+				text += text === "" ? "" : " | ";
+				if (count === 1) {
+					text += list[0].from;
+				} else if (count > 1 && count <= maxnames) {
+					var last = list.pop();
+					text += list.map(function(n) {
+						return n.from;
+					}).join(", ") + " and " + last.from;
+				} else if (count > maxnames) {
+					text += list.map(function(m) {
+						return m.from;
+					}).slice(0,maxnames).join(", ") + " and " + (count - maxnames) + " others";
 				}
-				text += obj[messageType] > 1 ? "s" : "";
+				text += " " + plurals[type].plural;
 			}
 		}
 		condensed.children(".condensed-msg").text(text);
 	}
 
-	function appendMessage(container, chan, chanType, messageType, msg) {
+	function appendMessage(input) {
+		var container = input.container || undefined;
+		var chan = input.chan || undefined;
+		var chanType = input.type || undefined;
+		var htmlMessage = input.htmlMessage || "";
+		var msg = input.msg || undefined;
+		var messageType = msg.type;
+
 		if (constants.condensedTypes.indexOf(messageType) !== -1 && chanType !== "lobby") {
 			var condensedTypesClasses = "." + constants.condensedTypes.join(", .");
 			var lastChild = container.children("div.msg").last();
 			var lastDate = (new Date(lastChild.attr("data-time"))).toDateString();
-			var msgDate = (new Date(msg.attr("data-time"))).toDateString();
-			if (lastChild && $(lastChild).hasClass("condensed") && !$(msg).hasClass("message") && lastDate === msgDate) {
-				lastChild.append(msg);
-				updateCondensedText(lastChild, [messageType]);
+			var msgDate = (new Date(htmlMessage.attr("data-time"))).toDateString();
+			if (lastChild && $(lastChild).hasClass("condensed") && !$(htmlMessage).hasClass("message") && lastDate === msgDate) {
+				lastChild.append(htmlMessage);
+				updateCondensedText(lastChild, [{type: messageType, msg: msg} ]);
 			} else if (lastChild && $(lastChild).is(condensedTypesClasses)) {
-				var condensed = buildChatMessage({msg: {type: "condensed", time: msg.attr("data-time")}, chan: chan});
+				var condensed = buildChatMessage({msg: {type: "condensed", time: htmlMessage.attr("data-time")}, chan: chan});
 				condensed.append(lastChild);
-				condensed.append(msg);
+				condensed.append(htmlMessage);
 				container.append(condensed);
-				updateCondensedText(condensed, [messageType, lastChild.attr("data-type")]);
+				updateCondensedText(condensed, [
+					{type: messageType, msg: msg},
+					{type: lastChild.attr("data-type"), msg: lastChild.data("msg")},
+				]);
 			} else {
-				container.append(msg);
+				htmlMessage.data("msg", msg);
+				container.append(htmlMessage);
 			}
 		} else {
-			container.append(msg);
+			container.append(htmlMessage);
 		}
 	}
 
 	function buildChannelMessages(data) {
-		return data.messages.reduce(function(docFragment, message) {
-			appendMessage(docFragment, data.id, data.type, message.type, buildChatMessage({
+		return data.messages.reduce(function(container, message) {
+			appendMessage({
+				container: container,
 				chan: data.id,
-				msg: message
-			}));
-			return docFragment;
+				msg: message,
+				type: message.type,
+				htmlMessage: buildChatMessage({
+					chan: data.id,
+					msg: message
+				}),
+			});
+			return container;
 		}, $(document.createDocumentFragment()));
 	}
 
@@ -421,7 +568,13 @@ $(function() {
 			prevMsg.after(templates.date_marker({msgDate: msgTime}));
 		}
 
-		appendMessage(container, data.chan, $(target).attr("data-type"), data.msg.type, msg);
+		appendMessage({
+			container: container,
+			chan: data.chan,
+			msg: data.msg,
+			htmlMessage: msg,
+			type: $(target).attr("data-type"),
+		});
 
 		container.trigger("msg", [
 			target,
