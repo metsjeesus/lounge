@@ -421,10 +421,6 @@ $(function() {
 			prevMsg.after(templates.date_marker({msgDate: msgTime}));
 		}
 
-<<<<<<< HEAD
-
-=======
->>>>>>> upstream/yamanickill/condense-joins
 		appendMessage(container, data.chan, $(target).attr("data-type"), data.msg.type, msg);
 
 		container.trigger("msg", [
