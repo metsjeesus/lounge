@@ -20,6 +20,7 @@ const constants = require("./constants");
 
 $(function() {
 
+
 	var sidebar = $("#sidebar, #footer");
 	var chat = $("#chat");
 
@@ -206,22 +207,8 @@ $(function() {
 			data.msg.highlight = true;
 		}
 
-		if ([
-			"invite",
-			"join",
-			"mode",
-			"kick",
-			"nick",
-			"part",
-			"quit",
-			"topic",
-			"topic_set_by",
-			"action",
-			"whois",
-			"ctcp",
-			"channel_list",
-			"ban_list",
-		].indexOf(type) !== -1) {
+		if (handledTypes.indexOf(type) !== -1) {
+			data.msg.template = "actions/" + type;
 			template = "msg_action";
 		} else if (type === "unhandled") {
 			template = "msg_unhandled";
@@ -427,10 +414,17 @@ $(function() {
 		}
 
 		if (prevMsgTime.toDateString() !== msgTime.toDateString()) {
+			var parent = prevMsg.parent();
+			if (parent.hasClass("condensed")) {
+				prevMsg = parent;
+			}
 			prevMsg.after(templates.date_marker({msgDate: msgTime}));
 		}
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> upstream/yamanickill/condense-joins
 		appendMessage(container, data.chan, $(target).attr("data-type"), data.msg.type, msg);
 
 		container.trigger("msg", [
@@ -1227,8 +1221,11 @@ $(function() {
 
 	chat.on("click", ".show-more-button", function() {
 		var self = $(this);
-		var count = self.parent().next(".messages").children(".msg").length;
-		self.prop("disabled", true);
+		var lastMessage = self.parent().next(".messages").children(".msg").first();
+		if (lastMessage.is(".condensed")) {
+			lastMessage = lastMessage.children(".msg").first();
+		}
+		var lastMessageId = lastMessage[0].id;
 		socket.emit("more", {
 			target: self.data("id"),
 			lastId: lastMessageId
