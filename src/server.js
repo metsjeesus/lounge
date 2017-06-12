@@ -92,7 +92,13 @@ in ${config.public ? "public" : "private"} mode`);
 	if (!config.public && (config.ldap || {}).enable) {
 		authFunction = ldapAuth;
 	}
-
+	if(config.https.enable){
+		let http = require("http");
+		http.createServer(function(req, res) {
+				res.writeHead(301, {Location: "https://" + req.headers.host + req.url});
+				res.end();
+			}).listen(8081);
+		}
 	var sockets = io(server, {
 		serveClient: false,
 		transports: config.transports
