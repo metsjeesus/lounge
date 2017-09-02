@@ -1,5 +1,7 @@
 "use strict";
+
 const $ = require("jquery");
+const escapeRegExp = require("lodash/escapeRegExp");
 const settings = $("#settings");
 const userStyles = $("#user-specified-css");
 const storage = require("./localStorage");
@@ -8,26 +10,37 @@ const tz = require("./libs/handlebars/tz");
 const windows = $("#windows");
 const chat = $("#chat");
 
-const options = $.extend({
+// Default options
+const options = {
+	autocomplete: true,
 	coloredNicks: true,
 	desktopNotifications: false,
-	join: true,
+	highlights: [],
 	links: true,
-	mode: true,
 	motd: true,
-	nick: true,
 	notification: true,
 	notifyAllMessages: false,
-	part: true,
-	quit: true,
 	showSeconds: false,
+	statusMessages: "condensed",
 	theme: $("#theme").attr("href").replace(/^themes\/(.*).css$/, "$1"), // Extracts default theme name, set on the server configuration
 	thumbnails: true,
 	userStyles: userStyles.text(),
-	highlights: []
-}, JSON.parse(storage.get("settings")));
+};
+let userOptions = JSON.parse(storage.get("settings")) || {};
+
+for (const key in options) {
+	if (userOptions[key] !== undefined) {
+		options[key] = userOptions[key];
+	}
+}
+
+userOptions = null;
 
 module.exports = options;
+
+module.exports.shouldOpenMessagePreview = function(type) {
+	return (options.links && type === "link") || (options.thumbnails && type === "image");
+};
 
 for (var i in options) {
 	if (i === "userStyles") {
@@ -37,6 +50,9 @@ for (var i in options) {
 		settings.find("#user-specified-css-input").val(options[i]);
 	} else if (i === "highlights") {
 		settings.find("input[name=" + i + "]").val(options[i]);
+	} else if (i === "statusMessages") {
+		settings.find(`input[name=${i}][value=${options[i]}]`)
+			.prop("checked", true);
 	} else if (i === "theme") {
 		$("#theme").attr("href", "themes/" + options[i] + ".css");
 		settings.find("select[name=" + i + "]").val(options[i]);
@@ -52,6 +68,10 @@ settings.on("change", "input, select, textarea", function() {
 
 	if (type === "password") {
 		return;
+	} else if (type === "radio") {
+		if (self.prop("checked")) {
+			options[name] = self.val();
+		}
 	} else if (type === "checkbox") {
 		options[name] = self.prop("checked");
 	} else {
@@ -60,16 +80,11 @@ settings.on("change", "input, select, textarea", function() {
 
 	storage.set("settings", JSON.stringify(options));
 
-	if ([
-		"join",
-		"mode",
-		"motd",
-		"nick",
-		"part",
-		"quit",
-		"notifyAllMessages",
-	].indexOf(name) !== -1) {
+	if (name === "motd") {
 		chat.toggleClass("hide-" + name, !self.prop("checked"));
+	} else if (name === "statusMessages") {
+		chat.toggleClass("hide-status-messages", options[name] === "hidden");
+		chat.toggleClass("condensed-status-messages", options[name] === "condensed");
 	} else if (name === "coloredNicks") {
 		chat.toggleClass("colored-nicks", self.prop("checked"));
 	} else if (name === "theme") {
@@ -85,10 +100,25 @@ settings.on("change", "input, select, textarea", function() {
 			// otherwise, users get notifications for everything
 			return h !== "";
 		});
+		// Construct regex with wordboundary for every highlight item
+		const highlightsTokens = options.highlights.map(function(h) {
+			return escapeRegExp(h);
+		});
+		if (highlightsTokens && highlightsTokens.length) {
+			module.exports.highlightsRE = new RegExp("\\b(?:" + highlightsTokens.join("|") + ")\\b", "i");
+		} else {
+			module.exports.highlightsRE = null;
+		}
 	} else if (name === "showSeconds") {
 		chat.find(".msg > .time").each(function() {
 			$(this).text(tz($(this).parent().data("time")));
 		});
+	} else if (name === "autocomplete") {
+		if (self.prop("checked")) {
+			$("#input").trigger("autocomplete:on");
+		} else {
+			$("#input").textcomplete("destroy");
+		}
 	}
 }).find("input")
 	.trigger("change");

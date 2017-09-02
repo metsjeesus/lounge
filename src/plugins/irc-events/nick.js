@@ -1,6 +1,5 @@
 "use strict";
 
-var _ = require("lodash");
 var Msg = require("../../models/msg");
 
 module.exports = function(irc, network) {
@@ -24,8 +23,8 @@ module.exports = function(irc, network) {
 			});
 		}
 
-		network.channels.forEach(chan => {
-			var user = _.find(chan.users, {nick: data.nick});
+		network.channels.forEach((chan) => {
+			const user = chan.findUser(data.nick);
 			if (typeof user === "undefined") {
 				return;
 			}

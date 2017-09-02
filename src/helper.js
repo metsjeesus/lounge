@@ -12,12 +12,14 @@ const colors = require("colors/safe");
 var Helper = {
 	config: null,
 	expandHome: expandHome,
+	getStoragePath: getStoragePath,
 	getUserConfigPath: getUserConfigPath,
 	getUserLogsPath: getUserLogsPath,
 	setHome: setHome,
 	getVersion: getVersion,
 	getGitCommit: getGitCommit,
 	ip2hex: ip2hex,
+	cleanIrcMessage: cleanIrcMessage,
 
 	password: {
 		hash: passwordHash,
@@ -59,14 +61,14 @@ function getGitCommit() {
 }
 
 function setHome(homePath) {
-	this.HOME = expandHome(homePath || "~/.lounge");
+	this.HOME = expandHome(homePath);
 	this.CONFIG_PATH = path.join(this.HOME, "config.js");
 	this.USERS_PATH = path.join(this.HOME, "users");
 
 	// Reload config from new home location
 	if (fs.existsSync(this.CONFIG_PATH)) {
 		var userConfig = require(this.CONFIG_PATH);
-		this.config = _.extend(this.config, userConfig);
+		this.config = _.merge(this.config, userConfig);
 	}
 
 	if (!this.config.displayNetwork && !this.config.lockNetwork) {
@@ -90,6 +92,10 @@ function getUserLogsPath(name, network) {
 	return path.join(this.HOME, "logs", name, network);
 }
 
+function getStoragePath() {
+	return path.join(this.HOME, "storage");
+}
+
 function ip2hex(address) {
 	// no ipv6 support
 	if (!net.isIPv4(address)) {
@@ -111,18 +117,14 @@ function expandHome(shortenedPath) {
 	if (!shortenedPath) {
 		return "";
 	}
-	var home;
 
-	if (os.homedir) {
-		home = os.homedir();
-	}
-
-	if (!home) {
-		home = process.env.HOME || "";
-	}
-
-	home = home.replace("$", "$$$$");
+	const home = os.homedir().replace("$", "$$$$");
 	return path.resolve(shortenedPath.replace(/^~($|\/|\\)/, home + "$1"));
+}
+
+function cleanIrcMessage(message) {
+	// TODO: This does not strip hex based colours
+	return message.replace(/\x02|\x1D|\x1F|\x16|\x0F|\x03(?:[0-9]{1,2}(?:,[0-9]{1,2})?)?/g, "");
 }
 
 function passwordRequiresUpdate(password) {
