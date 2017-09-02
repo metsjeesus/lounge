@@ -25,11 +25,14 @@ const commands = [
 	"/ban",
 	"/banlist",
 	"/close",
+	"/collapse",
 	"/connect",
 	"/ctcp",
+	"/cycle",
 	"/deop",
 	"/devoice",
 	"/disconnect",
+	"/expand",
 	"/invite",
 	"/join",
 	"/kick",
@@ -44,6 +47,7 @@ const commands = [
 	"/query",
 	"/quit",
 	"/raw",
+	"/rejoin",
 	"/say",
 	"/send",
 	"/server",
@@ -54,6 +58,32 @@ const commands = [
 	"/whois"
 ];
 
+const actionTypes = [
+	"ban_list",
+	"invite",
+	"join",
+	"mode",
+	"kick",
+	"nick",
+	"part",
+	"quit",
+	"topic",
+	"topic_set_by",
+	"action",
+	"whois",
+	"ctcp",
+	"channel_list",
+];
+
+const condensedTypes = [
+	"join",
+	"part",
+	"quit",
+	"nick",
+	"kick",
+	"mode",
+];
+
 const timeFormats = {
 	msgDefault: "HH:mm",
 	msgWithSeconds: "HH:mm:ss"
@@ -61,6 +91,9 @@ const timeFormats = {
 
 module.exports = {
 	colorCodeMap: colorCodeMap,
-	timeFormats: timeFormats,
-	commands: commands
+	commands: commands,
+	condensedTypes: condensedTypes,
+	condensedTypesQuery: "." + condensedTypes.join(", ."),
+	actionTypes: actionTypes,
+	timeFormats: timeFormats
 };

@@ -4,11 +4,12 @@ const Handlebars = require("handlebars/runtime");
 const parseStyle = require("./ircmessageparser/parseStyle");
 const findChannels = require("./ircmessageparser/findChannels");
 const findLinks = require("./ircmessageparser/findLinks");
+const findEmoji = require("./ircmessageparser/findEmoji");
 const merge = require("./ircmessageparser/merge");
 
 // Create an HTML `span` with styling information for a given fragment
 function createFragment(fragment) {
-	let classes = [];
+	const classes = [];
 	if (fragment.bold) {
 		classes.push("irc-bold");
 	}
@@ -50,7 +51,7 @@ function createFragment(fragment) {
 module.exports = function parse(text) {
 	// Extract the styling information and get the plain text version from it
 	const styleFragments = parseStyle(text);
-	const cleanText = styleFragments.map(fragment => fragment.text).join("");
+	const cleanText = styleFragments.map((fragment) => fragment.text).join("");
 
 	// On the plain text, find channels and URLs, returned as "parts". Parts are
 	// arrays of objects containing start and end markers, as well as metadata
@@ -59,15 +60,17 @@ module.exports = function parse(text) {
 	const userModes = ["!", "@", "%", "+"]; // TODO User modes should be RPL_ISUPPORT.PREFIX
 	const channelParts = findChannels(cleanText, channelPrefixes, userModes);
 	const linkParts = findLinks(cleanText);
+	const emojiParts = findEmoji(cleanText);
 
 	// Sort all parts identified based on their position in the original text
 	const parts = channelParts
 		.concat(linkParts)
+		.concat(emojiParts)
 		.sort((a, b) => a.start - b.start);
 
 	// Merge the styling information with the channels / URLs / text objects and
 	// generate HTML strings with the resulting fragments
-	return merge(parts, styleFragments).map(textPart => {
+	return merge(parts, styleFragments).map((textPart) => {
 		// Create HTML strings with styling information
 		const fragments = textPart.fragments.map(createFragment).join("");
 
@@ -78,6 +81,8 @@ module.exports = function parse(text) {
 		} else if (textPart.channel) {
 			const escapedChannel = Handlebars.Utils.escapeExpression(textPart.channel);
 			return `<span class="inline-channel" role="button" tabindex="0" data-chan="${escapedChannel}">${fragments}</span>`;
+		} else if (textPart.emoji) {
+			return `<span class="emoji">${fragments}</span>`;
 		}
 
 		return fragments;

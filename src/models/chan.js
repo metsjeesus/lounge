@@ -2,6 +2,7 @@
 
 var _ = require("lodash");
 var Helper = require("../helper");
+const storage = require("../plugins/storage");
 
 module.exports = Chan;
 
@@ -29,6 +30,10 @@ function Chan(attr) {
 	});
 }
 
+Chan.prototype.destroy = function() {
+	this.dereferencePreviews(this.messages);
+};
+
 Chan.prototype.pushMessage = function(client, msg, increasesUnread) {
 	var obj = {
 		chan: this.id,
@@ -36,7 +41,7 @@ Chan.prototype.pushMessage = function(client, msg, increasesUnread) {
 	};
 
 	// If this channel is open in any of the clients, do not increase unread counter
-	var isOpen = _.includes(client.attachedClients, this.id);
+	const isOpen = _.find(client.attachedClients, {openChannel: this.id}) !== undefined;
 
 	if ((increasesUnread || msg.highlight) && !isOpen) {
 		obj.unread = ++this.unread;
@@ -53,7 +58,13 @@ Chan.prototype.pushMessage = function(client, msg, increasesUnread) {
 	this.messages.push(msg);
 
 	if (Helper.config.maxHistory >= 0 && this.messages.length > Helper.config.maxHistory) {
-		this.messages.splice(0, this.messages.length - Helper.config.maxHistory);
+		const deleted = this.messages.splice(0, this.messages.length - Helper.config.maxHistory);
+
+		// If maxHistory is 0, image would be dereferenced before client had a chance to retrieve it,
+		// so for now, just don't implement dereferencing for this edge case.
+		if (Helper.config.prefetch && Helper.config.prefetchStorage && Helper.config.maxHistory > 0) {
+			this.dereferencePreviews(deleted);
+		}
 	}
 
 	if (!msg.self && !isOpen) {
@@ -65,6 +76,15 @@ Chan.prototype.pushMessage = function(client, msg, increasesUnread) {
 			this.highlight = true;
 		}
 	}
+};
+
+Chan.prototype.dereferencePreviews = function(messages) {
+	messages.forEach((message) => {
+		if (message.preview && message.preview.thumb) {
+			storage.dereference(message.preview.thumb);
+			message.preview.thumb = null;
+		}
+	});
 };
 
 Chan.prototype.sortUsers = function(irc) {
@@ -84,8 +104,16 @@ Chan.prototype.sortUsers = function(irc) {
 	});
 };
 
+Chan.prototype.findMessage = function(msgId) {
+	return this.messages.find((message) => message.id === msgId);
+};
+
+Chan.prototype.findUser = function(nick) {
+	return _.find(this.users, {nick: nick});
+};
+
 Chan.prototype.getMode = function(name) {
-	var user = _.find(this.users, {nick: name});
+	var user = this.findUser(name);
 	if (user) {
 		return user.mode;
 	}
@@ -95,6 +123,7 @@ Chan.prototype.getMode = function(name) {
 
 Chan.prototype.toJSON = function() {
 	var clone = _.clone(this);
+	clone.users = []; // Do not send user list, the client will explicitly request it when needed
 	clone.messages = clone.messages.slice(-100);
 	return clone;
 };
