@@ -5,6 +5,7 @@ const options = require("./options");
 const socket = require("./socket");
 const templates = require("../views");
 const input = $("#input");
+const Mousetrap = require("mousetrap");
 
 module.exports = renderPreview;
 
@@ -92,10 +93,12 @@ function handleImageInPreview(content, container) {
 
 const imageViewer = $("#image-viewer");
 
-$("#chat").on("click", ".toggle-thumbnail", function() {
+$("#chat").on("click", ".toggle-thumbnail", function(event, data = {}) {
 	const link = $(this);
 
-	openImageViewer(link);
+	// Passing `data`, specifically `data.pushState`, to not add the action to the
+	// history state if back or forward buttons were pressed.
+	openImageViewer(link, data);
 
 	// Prevent the link to open a new page since we're opening the image viewer,
 	// but keep it a link to allow for Ctrl/Cmd+click.
@@ -103,29 +106,22 @@ $("#chat").on("click", ".toggle-thumbnail", function() {
 	return false;
 });
 
-imageViewer.on("click", function() {
-	closeImageViewer();
+imageViewer.on("click", function(event, data = {}) {
+	// Passing `data`, specifically `data.pushState`, to not add the action to the
+	// history state if back or forward buttons were pressed.
+	closeImageViewer(data);
 });
 
-$(document).keydown(function(e) {
-	switch (e.keyCode ? e.keyCode : e.which) {
-	case 27: // Escape
-		closeImageViewer();
-		break;
-	case 37: // Left arrow
-		if (imageViewer.hasClass("opened")) {
-			imageViewer.find(".previous-image-btn").click();
-		}
-		break;
-	case 39: // Right arrow
-		if (imageViewer.hasClass("opened")) {
-			imageViewer.find(".next-image-btn").click();
-		}
-		break;
+Mousetrap.bind("esc", () => closeImageViewer());
+
+Mousetrap.bind(["left", "right"], (e, key) => {
+	if (imageViewer.hasClass("opened")) {
+		const direction = key === "left" ? "previous" : "next";
+		imageViewer.find(`.${direction}-image-btn`).click();
 	}
 });
 
-function openImageViewer(link) {
+function openImageViewer(link, {pushState = true} = {}) {
 	$(".previous-image").removeClass("previous-image");
 	$(".next-image").removeClass("next-image");
 
@@ -161,7 +157,20 @@ function openImageViewer(link) {
 		hasNextImage: nextImage.length > 0,
 	}));
 
-	imageViewer.addClass("opened");
+	// Turn off transitionend listener before opening the viewer,
+	// which caused image viewer to become empty in rare cases
+	imageViewer
+		.off("transitionend")
+		.addClass("opened");
+
+	// History management
+	if (pushState) {
+		const clickTarget =
+			`#${link.closest(".msg").attr("id")} ` +
+			`a.toggle-thumbnail[href="${link.attr("href")}"] ` +
+			"img";
+		history.pushState({clickTarget}, null, null);
+	}
 }
 
 imageViewer.on("click", ".previous-image-btn", function() {
@@ -174,7 +183,7 @@ imageViewer.on("click", ".next-image-btn", function() {
 	return false;
 });
 
-function closeImageViewer() {
+function closeImageViewer({pushState = true} = {}) {
 	imageViewer
 		.removeClass("opened")
 		.one("transitionend", function() {
@@ -182,4 +191,12 @@ function closeImageViewer() {
 		});
 
 	input.focus();
+
+	// History management
+	if (pushState) {
+		const clickTarget =
+			"#sidebar " +
+			`.chan[data-id="${$("#sidebar .chan.active").data("id")}"]`;
+		history.pushState({clickTarget}, null, null);
+	}
 }

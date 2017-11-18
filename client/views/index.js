@@ -3,6 +3,8 @@
 module.exports = {
 	actions: {
 		action: require("./actions/action.tpl"),
+		away: require("./actions/away.tpl"),
+		back: require("./actions/back.tpl"),
 		ban_list: require("./actions/ban_list.tpl"),
 		channel_list: require("./actions/channel_list.tpl"),
 		ctcp: require("./actions/ctcp.tpl"),
@@ -32,6 +34,7 @@ module.exports = {
 	msg_unhandled: require("./msg_unhandled.tpl"),
 	network: require("./network.tpl"),
 	image_viewer: require("./image_viewer.tpl"),
+	session: require("./session.tpl"),
 	unread_marker: require("./unread_marker.tpl"),
 	user: require("./user.tpl"),
 	user_filtered: require("./user_filtered.tpl"),

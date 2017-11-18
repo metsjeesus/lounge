@@ -2,6 +2,8 @@
 
 var _ = require("lodash");
 var Helper = require("../helper");
+const User = require("./user");
+const userLog = require("../userLog");
 const storage = require("../plugins/storage");
 
 module.exports = Chan;
@@ -13,7 +15,7 @@ Chan.Type = {
 	SPECIAL: "special",
 };
 
-var id = 0;
+let id = 1;
 
 function Chan(attr) {
 	_.defaults(this, attr, {
@@ -25,7 +27,7 @@ function Chan(attr) {
 		type: Chan.Type.CHANNEL,
 		firstUnread: 0,
 		unread: 0,
-		highlight: false,
+		highlight: 0,
 		users: []
 	});
 }
@@ -57,6 +59,10 @@ Chan.prototype.pushMessage = function(client, msg, increasesUnread) {
 
 	this.messages.push(msg);
 
+	if (client.config.log === true) {
+		writeUserLog.call(this, client, msg);
+	}
+
 	if (Helper.config.maxHistory >= 0 && this.messages.length > Helper.config.maxHistory) {
 		const deleted = this.messages.splice(0, this.messages.length - Helper.config.maxHistory);
 
@@ -67,13 +73,17 @@ Chan.prototype.pushMessage = function(client, msg, increasesUnread) {
 		}
 	}
 
-	if (!msg.self && !isOpen) {
+	if (msg.self) {
+		// reset counters/markers when receiving self-/echo-message
+		this.firstUnread = 0;
+		this.highlight = 0;
+	} else if (!isOpen) {
 		if (!this.firstUnread) {
 			this.firstUnread = msg.id;
 		}
 
 		if (msg.highlight) {
-			this.highlight = true;
+			this.highlight++;
 		}
 	}
 };
@@ -112,6 +122,10 @@ Chan.prototype.findUser = function(nick) {
 	return _.find(this.users, {nick: nick});
 };
 
+Chan.prototype.getUser = function(nick) {
+	return this.findUser(nick) || new User({nick: nick});
+};
+
 Chan.prototype.getMode = function(name) {
 	var user = this.findUser(name);
 	if (user) {
@@ -127,3 +141,18 @@ Chan.prototype.toJSON = function() {
 	clone.messages = clone.messages.slice(-100);
 	return clone;
 };
+
+function writeUserLog(client, msg) {
+	const target = client.find(this.id);
+
+	if (!target) {
+		return false;
+	}
+
+	userLog.write(
+		client.name,
+		target.network.host, // TODO: Fix #1392, multiple connections to same server results in duplicate logs
+		this.type === Chan.Type.LOBBY ? target.network.host : this.name,
+		msg
+	);
+}

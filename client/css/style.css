@@ -1,26 +1,4 @@
 @font-face {
-	font-family: "Lato";
-	font-weight: 400;
-	font-style: normal;
-	src:
-		local("Lato Regular"),
-		local("Lato-regular"),
-		url("fonts/Lato-regular/Lato-regular.woff2") format("woff2"),
-		url("fonts/Lato-regular/Lato-regular.woff") format("woff");
-}
-
-@font-face {
-	font-family: "Lato";
-	font-weight: 700;
-	font-style: normal;
-	src:
-		local("Lato Bold"),
-		local("Lato-700"),
-		url("fonts/Lato-700/Lato-700.woff2") format("woff2"),
-		url("fonts/Lato-700/Lato-700.woff") format("woff");
-}
-
-@font-face {
 	font-family: "FontAwesome";
 	font-weight: normal;
 	font-style: normal;
@@ -37,19 +15,26 @@ body {
 body {
 	background: #455164;
 	color: #222;
-	font: 16px Lato, sans-serif;
+	font: 16px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 	margin: 0;
 	-webkit-user-select: none;
 	-moz-user-select: none;
 	-ms-user-select: none;
 	user-select: none;
 	cursor: default;
+	touch-action: none;
 
 	/**
 	  * Disable pull-to-refresh on mobile that conflicts with scrolling the message list.
 	  * See http://stackoverflow.com/a/29313685/1935861
 	  */
 	overflow-y: hidden;
+}
+
+a,
+a:hover,
+a:focus {
+	color: #50a656;
 }
 
 a {
@@ -81,10 +66,6 @@ h3 {
 	margin: 0;
 }
 
-h1.title {
-	margin-bottom: 10px;
-}
-
 input {
 	outline: 0;
 }
@@ -98,7 +79,8 @@ button {
 }
 
 code,
-kbd {
+kbd,
+textarea#user-specified-css-input {
 	font-family: Consolas, Menlo, Monaco, "Lucida Console", "DejaVu Sans Mono", "Courier New", monospace;
 }
 
@@ -159,6 +141,7 @@ kbd {
 .container {
 	margin: 80px auto;
 	max-width: 480px;
+	touch-action: pan-y;
 }
 
 ::-moz-placeholder {
@@ -174,6 +157,7 @@ kbd {
 	color: rgba(0, 0, 0, 0.35) !important;
 }
 
+#js-copy-hack,
 #help,
 #windows .header .title,
 #windows .header .topic,
@@ -183,6 +167,16 @@ kbd {
 	-ms-user-select: text;
 	user-select: text;
 	cursor: text;
+}
+
+#js-copy-hack {
+	position: absolute;
+	left: -999999px;
+}
+
+#chat #js-copy-hack .condensed:not(.closed) .msg,
+#chat #js-copy-hack > .msg {
+	display: block;
 }
 
 /* Icons */
@@ -197,6 +191,8 @@ kbd {
 #settings .extra-help,
 #settings #play::before,
 #form #submit::before,
+#chat .away .from::before,
+#chat .back .from::before,
 #chat .invite .from::before,
 #chat .join .from::before,
 #chat .kick .from::before,
@@ -246,6 +242,20 @@ kbd {
 #footer .sign-out::before { content: "\f011"; /* http://fontawesome.io/icon/power-off/ */ }
 
 #form #submit::before { content: "\f1d8"; /* http://fontawesome.io/icon/paper-plane/ */ }
+
+#chat .away .from::before,
+#chat .back .from::before {
+	content: "\f017"; /* http://fontawesome.io/icon/clock-o/ */
+	color: #7f8c8d;
+}
+
+.session-list strong {
+	display: block;
+}
+
+.session-list p {
+	margin-bottom: 10px;
+}
 
 #chat .invite .from::before {
 	content: "\f003"; /* http://fontawesome.io/icon/envelope-o/ */
@@ -354,26 +364,6 @@ kbd {
 	overflow: hidden;
 }
 
-#viewport {
-	height: 100%;
-	transition: transform 160ms, -webkit-transform 160ms;
-	-webkit-transform: translateZ(0);
-	transform: translateZ(0);
-}
-
-#viewport.menu-open {
-	-webkit-transform: translate3d(220px, 0, 0);
-	transform: translate3d(220px, 0, 0);
-}
-
-#viewport.menu-dragging {
-	transition: none !important;
-}
-
-#viewport.menu-open .messages {
-	pointer-events: none;
-}
-
 #chat button,
 #form button,
 #chat .user {
@@ -457,12 +447,16 @@ kbd {
 
 #sidebar button,
 #sidebar .chan,
-#sidebar .sign-out {
-	border: 1px solid transparent;
-	border-radius: 2px;
+#sidebar .sign-out,
+#sidebar .empty {
 	color: #99a2b4;
-	cursor: pointer;
 	font-size: 14px;
+}
+
+#sidebar button,
+#sidebar .chan,
+#sidebar .sign-out {
+	cursor: pointer;
 }
 
 #sidebar button:hover,
@@ -472,7 +466,8 @@ kbd {
 }
 
 #sidebar .networks {
-	padding: 20px 30px 0;
+	padding-top: 20px;
+	touch-action: pan-y;
 }
 
 #sidebar .networks:empty {
@@ -482,31 +477,21 @@ kbd {
 #sidebar .network,
 #sidebar .network-placeholder {
 	margin-bottom: 30px;
+	touch-action: pan-y;
 }
 
 #sidebar .empty {
-	color: #9ca5b4;
 	line-height: 1.6;
-	font-size: 12px;
-	margin-top: 20px;
-	padding: 20px 40px;
+	padding: 40px 20px;
 	text-align: center;
 }
 
 #sidebar .chan,
 #sidebar .chan-placeholder {
 	display: block;
-	margin: 1px -10px;
-	padding: 6px 10px 8px 36px;
-	position: relative;
-	text-align: left;
+	padding: 8px 25px;
 	transition: color 0.2s;
-	width: 180px;
-	left: auto !important; /* Fix for drag'n'drop not recalculating left position */
-}
-
-#sidebar .chan-placeholder {
-	padding-bottom: 10px;
+	width: 100%;
 }
 
 #sidebar .chan:first-child {
@@ -522,16 +507,12 @@ kbd {
 
 #sidebar .chan::before,
 #chat .title::before {
-	float: left;
-	margin-top: 3px;
 	margin-right: 12px;
-	text-align: center;
 }
 
 #sidebar .chan::before {
-	position: absolute;
-	top: 4px;
-	left: 10px;
+	float: left;
+	line-height: 18px;
 }
 
 #chat .title::before {
@@ -557,17 +538,25 @@ kbd {
 	content: " ";
 }
 
+#sidebar .badge,
+#sidebar .close {
+	float: right;
+	margin-left: 5px;
+	margin-right: -5px;
+}
+
 #sidebar .badge {
 	background: rgba(255, 255, 255, 0.06);
 	border-radius: 3px;
 	color: #afb6c0;
 	font-size: 10px;
 	margin-top: 1px;
-	margin-right: -5px;
-	margin-left: 5px;
 	padding: 3px 6px;
-	float: right;
-	transition: opacity 0.2s, background-color 0.2s, color 0.2s;
+	transition: background-color 0.2s, color 0.2s;
+}
+
+#sidebar .badge:empty {
+	display: none;
 }
 
 #sidebar .badge.highlight {
@@ -575,37 +564,27 @@ kbd {
 	color: #49505a;
 }
 
-#sidebar .chan.active .badge,
-#sidebar .badge:empty {
-	opacity: 0;
-}
-
 #sidebar .close {
 	border-radius: 3px;
-	margin-right: 5px;
-	visibility: hidden;
-	opacity: 0;
-	position: absolute;
-	z-index: 2;
-	right: 0;
+	width: 18px;
+	height: 18px;
+	display: none;
 	transition: opacity 0.2s, background-color 0.2s;
 }
 
 #sidebar .close::before {
-	font-size: 18px;
+	font-size: 20px;
 	font-weight: normal;
 	display: inline-block;
-	line-height: 18px;
-	width: 18px;
-	height: 18px;
+	line-height: 16px;
 	text-align: center;
 	content: "×";
 	color: #fff;
 }
 
 #sidebar .chan.active .close {
-	visibility: visible;
 	opacity: 0.4;
+	display: unset;
 }
 
 #sidebar .chan.active .close:hover {
@@ -688,6 +667,7 @@ kbd {
 	width: 100%;
 }
 
+#windows p,
 #windows label,
 #settings .error {
 	font-size: 14px;
@@ -834,7 +814,7 @@ kbd {
 	display: flex;
 }
 
-#chat .condensed-summary:hover {
+#chat .condensed-summary .content:hover {
 	opacity: 0.6;
 }
 
@@ -850,10 +830,11 @@ kbd {
 	visibility: hidden;
 }
 
+#windows #form .input,
 #windows .header .topic,
 .messages .msg,
 .sidebar {
-	font: 13px Consolas, Menlo, Monaco, "Lucida Console", "DejaVu Sans Mono", "Courier New", monospace;
+	font-size: 14px;
 	line-height: 1.4;
 }
 
@@ -896,6 +877,7 @@ kbd {
 	right: 0;
 	width: 180px;
 	transition: right 0.4s;
+	touch-action: pan-y;
 }
 
 #chat .show-more {
@@ -924,6 +906,7 @@ kbd {
 
 #chat .messages {
 	padding: 10px 0;
+	touch-action: pan-y;
 }
 
 #chat .msg {
@@ -1001,14 +984,18 @@ kbd {
 #chat .time,
 #chat .from,
 #chat .content {
-	display: block;
-	padding: 2px 0;
+	padding: 3px 0;
 	flex: 0 0 auto;
 }
 
 #chat .time {
 	color: #ddd;
 	padding-left: 10px;
+	width: 55px;
+}
+
+#chat.show-seconds .time {
+	width: 75px;
 }
 
 #chat .from {
@@ -1031,10 +1018,6 @@ kbd {
 #chat .special .time,
 #chat .special .from {
 	display: none;
-}
-
-#chat a {
-	color: #50a656;
 }
 
 /* Nicknames */
@@ -1147,6 +1130,8 @@ kbd {
 }
 
 #chat .condensed .content,
+#chat .away .content,
+#chat .back .content,
 #chat .join .content,
 #chat .kick .content,
 #chat .mode .content,
@@ -1197,9 +1182,9 @@ kbd {
 	border-radius: 2px;
 	display: none;
 	color: #222;
-	font-size: 12px;
 	max-width: 100%;
-	margin: 2px 0;
+	margin: 0;
+	margin-top: 6px;
 	overflow: hidden;
 }
 
@@ -1211,7 +1196,7 @@ kbd {
 
 #chat .toggle-content .thumb {
 	max-width: 48px;
-	max-height: 32px;
+	max-height: 38px;
 }
 
 #chat .toggle-thumbnail {
@@ -1286,6 +1271,7 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	position: absolute;
 	top: 48px;
 	width: 100%;
+	touch-action: pan-y;
 }
 
 #chat .names-filtered {
@@ -1296,6 +1282,7 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	display: block;
 	line-height: 1.6;
 	padding: 0 16px;
+	white-space: nowrap;
 }
 
 #chat .user-mode::before {
@@ -1375,7 +1362,6 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 
 #connect .tls {
 	float: left;
-	font-size: 14px;
 	margin-top: 6px;
 }
 
@@ -1442,10 +1428,14 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	display: table-row;
 }
 
+#help .help-item,
+#help .about {
+	font-size: 14px;
+}
+
 #help .help-item .subject,
 #help .help-item .description {
 	display: table-cell;
-	font-size: 14px;
 	padding-bottom: 15px;
 }
 
@@ -1459,8 +1449,16 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 }
 
 #help .about {
-	font-size: 14px;
 	line-height: 1.8;
+}
+
+.is-apple #help .key-all,
+#help .key-apple {
+	display: none;
+}
+
+.is-apple #help .key-apple {
+	display: inline-block;
 }
 
 #form {
@@ -1472,7 +1470,6 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 }
 
 #windows #form .input {
-	font: 13px Consolas, Menlo, Monaco, "Lucida Console", "DejaVu Sans Mono", "Courier New", monospace;
 	border: 1px solid #ddd;
 	border-radius: 2px;
 	margin: 0;
@@ -1485,6 +1482,15 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 }
 
 #connection-error {
+	font-size: 12px;
+	line-height: 36px;
+	font-weight: bold;
+	letter-spacing: 1px;
+	word-spacing: 3px;
+	text-transform: uppercase;
+	background: #e74c3c;
+	color: #fff;
+	text-align: center;
 	display: none;
 }
 
@@ -1496,13 +1502,21 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	outline: none;
 }
 
+[contenteditable="true"] {
+	-webkit-user-select: text;
+	-moz-user-select: text;
+	-ms-user-select: text;
+	user-select: text;
+	cursor: text;
+}
+
 /* Nick editor */
 
 #form #nick {
 	background: #f6f6f6;
 	color: #666;
 	font: inherit;
-	font-size: 11px;
+	font-size: 13px;
 	margin: 4px;
 	line-height: 22px;
 	height: 24px;
@@ -1550,9 +1564,9 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	background: transparent;
 	border: none;
 	font: inherit;
-	min-height: 18px; /* Required when computing input height at char deletion */
-	height: 18px;
-	max-height: 90px;
+	min-height: 19px; /* Required when computing input height at char deletion */
+	height: 19px;
+	max-height: 95px; /* min-height/height x number of lines maximum */
 	line-height: 1.4;
 	outline: none;
 	margin: 5px;
@@ -1561,6 +1575,7 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	-webkit-flex: 1 0 auto;
 	flex: 1 0 auto;
 	align-self: center;
+	touch-action: pan-y;
 }
 
 #form #submit {
@@ -1671,7 +1686,7 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	z-index: 1000000;
 	display: none;
 	padding: 5px 8px;
-	font: 12px Lato;
+	font-size: 12px;
 	line-height: 1.2;
 	-webkit-font-smoothing: subpixel-antialiased;
 	color: #fff;
@@ -1976,6 +1991,43 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 		margin-top: 60px !important;
 	}
 
+	#sidebar button,
+	#sidebar .chan,
+	#sidebar .sign-out,
+	#sidebar .empty,
+	#windows label,
+	#windows .header .topic,
+	#settings .error,
+	#help .help-item,
+	#help .about,
+	#loading,
+	#context-menu,
+	#form #input,
+	.textcomplete-menu,
+	.messages .msg {
+		font-size: 15px;
+	}
+
+	#viewport {
+		height: 100%;
+		transition: transform 160ms, -webkit-transform 160ms;
+		-webkit-transform: translateZ(0);
+		transform: translateZ(0);
+	}
+
+	#viewport.menu-open {
+		-webkit-transform: translate3d(220px, 0, 0);
+		transform: translate3d(220px, 0, 0);
+	}
+
+	#viewport.menu-dragging {
+		transition: none !important;
+	}
+
+	#viewport.menu-open .messages {
+		pointer-events: none;
+	}
+
 	#sidebar,
 	#footer {
 		left: -220px;
@@ -2019,17 +2071,9 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	}
 }
 
-@media (min-width: 1610px) {
-	#windows .header .topic,
-	.messages .msg,
-	.sidebar {
-		font-size: 14px;
-	}
-}
-
 @media (max-width: 479px) {
 	.container {
-		margin: 40px 0 !important;
+		margin: 10px 0 !important;
 	}
 
 	#connect .tls {
@@ -2180,6 +2224,13 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 
 	/* Top/Bottom margins + button height + image/button margin */
 	max-height: calc(100vh - 2 * 10px - 37px - 10px);
+
+	/* Checkered background for transparent images */
+	background-position: 0 0, 10px 10px;
+	background-size: 20px 20px;
+	background-image:
+		linear-gradient(45deg, #eee 25%, rgba(0, 0, 0, 0) 25%, rgba(0, 0, 0, 0) 75%, #eee 75%, #eee 100%),
+		linear-gradient(45deg, #eee 25%, #fff 25%, #fff 75%, #eee 75%, #eee 100%);
 }
 
 #image-viewer .open-btn {

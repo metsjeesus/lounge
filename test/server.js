@@ -6,8 +6,15 @@ const request = require("request");
 const io = require("socket.io-client");
 
 describe("Server", () => {
-	const server = require("../src/server");
-	server();
+	let server;
+
+	before(() => {
+		server = require("../src/server")();
+	});
+
+	after((done) => {
+		server.close(done);
+	});
 
 	const webURL = `http://${Helper.config.host}:${Helper.config.port}/`;
 
@@ -36,6 +43,11 @@ describe("Server", () => {
 
 	describe("WebSockets", () => {
 		let client;
+
+		before((done) => {
+			Helper.config.public = true;
+			done();
+		});
 
 		beforeEach(() => {
 			client = io(webURL, {
@@ -92,6 +104,10 @@ describe("Server", () => {
 				expect(data.networks).to.be.an("array");
 				expect(data.networks).to.be.empty;
 				expect(data.token).to.be.null;
+				expect(data.pushSubscription).to.be.undefined;
+
+				// Private key defined in vapid.json is "01020304050607080910111213141516" for this public key.
+				expect(data.applicationServerKey).to.equal("BM0eTDpvDnH7ewlHuXWcPTE1NjlJ06XWIS1cQeBTZmsg4EDx5sOpY7kdX1pniTo8RakL3UdfFuIbC8_zog_BWIM");
 
 				done();
 			});
