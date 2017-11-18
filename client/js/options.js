@@ -1,6 +1,7 @@
 "use strict";
 
 const $ = require("jquery");
+require("jquery-textcomplete");
 const escapeRegExp = require("lodash/escapeRegExp");
 const settings = $("#settings");
 const userStyles = $("#user-specified-css");
@@ -113,6 +114,7 @@ settings.on("change", "input, select, textarea", function() {
 		chat.find(".msg > .time").each(function() {
 			$(this).text(tz($(this).parent().data("time")));
 		});
+		chat.toggleClass("show-seconds", self.prop("checked"));
 	} else if (name === "autocomplete") {
 		if (self.prop("checked")) {
 			$("#input").trigger("autocomplete:on");

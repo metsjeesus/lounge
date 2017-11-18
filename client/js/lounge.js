@@ -4,43 +4,29 @@
 require("jquery-ui/ui/widgets/sortable");
 const $ = require("jquery");
 const moment = require("moment");
-const Mousetrap = require("mousetrap");
 const URI = require("urijs");
 const fuzzy = require("fuzzy");
 
 // our libraries
 require("./libs/jquery/inputhistory");
 require("./libs/jquery/stickyscroll");
-const helpers_roundBadgeNumber = require("./libs/handlebars/roundBadgeNumber");
 const slideoutMenu = require("./libs/slideout");
 const templates = require("../views");
 const socket = require("./socket");
 require("./socket-events");
 const storage = require("./localStorage");
-const options = require("./options");
+require("./options");
 const utils = require("./utils");
 require("./autocompletion");
 require("./webpush");
+require("./keybinds");
+require("./clipboard");
 
 $(function() {
 	var sidebar = $("#sidebar, #footer");
 	var chat = $("#chat");
 
 	$(document.body).data("app-name", document.title);
-
-	var pop;
-	try {
-		pop = new Audio();
-		pop.src = "audio/pop.ogg";
-	} catch (e) {
-		pop = {
-			play: $.noop
-		};
-	}
-
-	$("#play").on("click", function() {
-		pop.play();
-	});
 
 	var windows = $("#windows");
 	var viewport = $("#viewport");
@@ -182,6 +168,10 @@ $(function() {
 		});
 	}
 
+	if (navigator.platform.match(/(Mac|iPhone|iPod|iPad)/i)) {
+		$(document.body).addClass("is-apple");
+	}
+
 	$("#form").on("submit", function(e) {
 		e.preventDefault();
 		utils.forceFocus();
@@ -194,18 +184,13 @@ $(function() {
 		input.val("");
 		resetInputHeight(input.get(0));
 
-		if (text.indexOf("/clear") === 0) {
-			utils.clear();
-			return;
-		}
-
 		if (text.indexOf("/collapse") === 0) {
-			$(".chan.active .toggle-button.opened").click();
+			$(".chan.active .toggle-preview.opened").click();
 			return;
 		}
 
 		if (text.indexOf("/expand") === 0) {
-			$(".chan.active .toggle-button:not(.opened)").click();
+			$(".chan.active .toggle-preview:not(.opened)").click();
 			return;
 		}
 
@@ -330,16 +315,16 @@ $(function() {
 		const state = {};
 
 		if (self.hasClass("chan")) {
-			state.clickTarget = `.chan[data-id="${self.data("id")}"]`;
+			state.clickTarget = `#sidebar .chan[data-id="${self.data("id")}"]`;
 		} else {
 			state.clickTarget = `#footer button[data-target="${target}"]`;
 		}
 
 		if (history && history.pushState) {
 			if (data && data.replaceHistory && history.replaceState) {
-				history.replaceState(state, null, null);
+				history.replaceState(state, null, target);
 			} else {
-				history.pushState(state, null, null);
+				history.pushState(state, null, target);
 			}
 		}
 	});
@@ -385,6 +370,7 @@ $(function() {
 
 		lastActiveChan
 			.find(".unread-marker")
+			.data("unread-id", 0)
 			.appendTo(lastActiveChan.find(".messages"));
 
 		var chan = $(target)
@@ -397,8 +383,9 @@ $(function() {
 		}
 		document.title = title;
 
+		const type = chan.data("type");
 		var placeholder = "";
-		if (chan.data("type") === "channel" || chan.data("type") === "query") {
+		if (type === "channel" || type === "query") {
 			placeholder = `Write to ${chan.data("title")}`;
 		}
 		input.attr("placeholder", placeholder);
@@ -416,6 +403,11 @@ $(function() {
 		if (chan.data("needsNamesRefresh") === true) {
 			chan.data("needsNamesRefresh", false);
 			socket.emit("names", {target: self.data("id")});
+		}
+
+		if (type === "settings") {
+			$("#session-list").html("<p>Loading…</p>");
+			socket.emit("sessions:get");
 		}
 
 		focus();
@@ -436,7 +428,7 @@ $(function() {
 		if (chan.hasClass("lobby")) {
 			cmd = "/quit";
 			var server = chan.find(".name").html();
-			if (!confirm("Disconnect from " + server + "?")) {
+			if (!confirm("Disconnect from " + server + "?")) { // eslint-disable-line no-alert
 				return false;
 			}
 		}
@@ -493,95 +485,6 @@ $(function() {
 		container.html(templates.user_filtered({matches: result})).show();
 	});
 
-	chat.on("msg", ".messages", function(e, target, msg) {
-		var unread = msg.unread;
-		msg = msg.msg;
-
-		if (msg.self) {
-			return;
-		}
-
-		var button = sidebar.find(".chan[data-target='" + target + "']");
-		if (msg.highlight || (options.notifyAllMessages && msg.type === "message")) {
-			if (!document.hasFocus() || !$(target).hasClass("active")) {
-				if (options.notification) {
-					try {
-						pop.play();
-					} catch (exception) {
-						// On mobile, sounds can not be played without user interaction.
-					}
-				}
-				utils.toggleNotificationMarkers(true);
-
-				if (options.desktopNotifications && Notification.permission === "granted") {
-					var title;
-					var body;
-
-					if (msg.type === "invite") {
-						title = "New channel invite:";
-						body = msg.from + " invited you to " + msg.channel;
-					} else {
-						title = msg.from;
-						if (!button.hasClass("query")) {
-							title += " (" + button.data("title").trim() + ")";
-						}
-						if (msg.type === "message") {
-							title += " says:";
-						}
-						body = msg.text.replace(/\x03(?:[0-9]{1,2}(?:,[0-9]{1,2})?)?|[\x00-\x1F]|\x7F/g, "").trim();
-					}
-
-					try {
-						var notify = new Notification(title, {
-							body: body,
-							icon: "img/logo-64.png",
-							tag: target
-						});
-						notify.addEventListener("click", function() {
-							window.focus();
-							button.click();
-							this.close();
-						});
-					} catch (exception) {
-						// `new Notification(...)` is not supported and should be silenced.
-					}
-				}
-			}
-		}
-
-		if (button.hasClass("active")) {
-			return;
-		}
-
-		if (!unread) {
-			return;
-		}
-
-		var badge = button.find(".badge").html(helpers_roundBadgeNumber(unread));
-
-		if (msg.highlight) {
-			badge.addClass("highlight");
-		}
-	});
-
-	chat.on("click", ".show-more-button", function() {
-		var self = $(this);
-		var lastMessage = self.parent().next(".messages").children(".msg").first();
-		if (lastMessage.is(".condensed")) {
-			lastMessage = lastMessage.children(".msg").first();
-		}
-		var lastMessageId = parseInt(lastMessage[0].id.replace("msg-", ""), 10);
-
-		self
-			.text("Loading older messages…")
-			.prop("disabled", true);
-
-		socket.emit("more", {
-			target: self.data("id"),
-			lastId: lastMessageId
-		});
-	});
-
 	var forms = $("#sign-in, #connect, #change-password");
 
 	windows.on("show", "#sign-in", function() {
@@ -593,7 +496,8 @@ $(function() {
 			}
 		});
 	});
-	if ($("body").hasClass("public")) {
+
+	if ($("body").hasClass("public") && (window.location.hash === "#connect" || window.location.hash === "")) {
 		$("#connect").one("show", function() {
 			var params = URI(document.location.search);
 			params = params.search(true);
@@ -623,23 +527,25 @@ $(function() {
 		e.preventDefault();
 		var event = "auth";
 		var form = $(this);
-		form.find(".btn")
-			.attr("disabled", true)
-			.end();
+		form.find(".btn").attr("disabled", true);
+
 		if (form.closest(".window").attr("id") === "connect") {
 			event = "conn";
 		} else if (form.closest("div").attr("id") === "change-password") {
 			event = "change-password";
 		}
+
 		var values = {};
 		$.each(form.serializeArray(), function(i, obj) {
 			if (obj.value !== "") {
 				values[obj.name] = obj.value;
 			}
 		});
+
 		if (values.user) {
 			storage.set("user", values.user);
 		}
+
 		socket.emit(
 			event, values
 		);
@@ -667,111 +573,6 @@ $(function() {
 		$(this).data("lastvalue", nick);
 	});
 
-	(function HotkeysScope() {
-		Mousetrap.bind([
-			"pageup",
-			"pagedown"
-		], function(e, key) {
-			let container = windows.find(".window.active");
-
-			// Chat windows scroll message container
-			if (container.attr("id") === "chat-container") {
-				container = container.find(".chan.active .chat");
-			}
-
-			container.finish();
-
-			const offset = container.get(0).clientHeight * 0.9;
-			let scrollTop = container.scrollTop();
-
-			if (key === "pageup") {
-				scrollTop = Math.floor(scrollTop - offset);
-			} else {
-				scrollTop = Math.ceil(scrollTop + offset);
-			}
-
-			container.animate({
-				scrollTop: scrollTop
-			}, 200);
-
-			return false;
-		});
-
-		Mousetrap.bind([
-			"command+up",
-			"command+down",
-			"ctrl+up",
-			"ctrl+down"
-		], function(e, keys) {
-			var channels = sidebar.find(".chan");
-			var index = channels.index(channels.filter(".active"));
-			var direction = keys.split("+").pop();
-			switch (direction) {
-			case "up":
-				// Loop
-				var upTarget = (channels.length + (index - 1 + channels.length)) % channels.length;
-				channels.eq(upTarget).click();
-				break;
-
-			case "down":
-				// Loop
-				var downTarget = (channels.length + (index + 1 + channels.length)) % channels.length;
-				channels.eq(downTarget).click();
-				break;
-			}
-		});
-
-		Mousetrap.bind([
-			"command+shift+l",
-			"ctrl+shift+l"
-		], function(e) {
-			if (e.target === input[0]) {
-				utils.clear();
-				e.preventDefault();
-			}
-		});
-
-		Mousetrap.bind([
-			"escape"
-		], function() {
-			contextMenuContainer.hide();
-		});
-
-		var colorsHotkeys = {
-			k: "\x03",
-			b: "\x02",
-			u: "\x1F",
-			i: "\x1D",
-			o: "\x0F",
-		};
-
-		for (var hotkey in colorsHotkeys) {
-			Mousetrap.bind([
-				"command+" + hotkey,
-				"ctrl+" + hotkey
-			], function(e) {
-				e.preventDefault();
-
-				const cursorPosStart = input.prop("selectionStart");
-				const cursorPosEnd = input.prop("selectionEnd");
-				const value = input.val();
-				let newValue = value.substring(0, cursorPosStart) + colorsHotkeys[e.key];
-
-				if (cursorPosStart === cursorPosEnd) {
-					// If no text is selected, insert at cursor
-					newValue += value.substring(cursorPosEnd, value.length);
-				} else {
-					// If text is selected, insert formatting character at start and the end
-					newValue += value.substring(cursorPosStart, cursorPosEnd) + colorsHotkeys[e.key] + value.substring(cursorPosEnd, value.length);
-				}
-
-				input
-					.val(newValue)
-					.get(0).setSelectionRange(cursorPosStart + 1, cursorPosEnd + 1);
-			});
-		}
-	}());
-
 	$(document).on("visibilitychange focus click", () => {
 		if (sidebar.find(".highlight").length === 0) {
 			utils.toggleNotificationMarkers(false);
@@ -789,7 +590,7 @@ $(function() {
 		$(".date-marker-text[data-label='Today'], .date-marker-text[data-label='Yesterday']")
 			.closest(".date-marker-container")
 			.each(function() {
-				$(this).replaceWith(templates.date_marker({msgDate: $(this).data("timestamp")}));
+				$(this).replaceWith(templates.date_marker({time: $(this).data("time")}));
 			});
 
 		// This should always be 24h later but re-computing exact value just in case
@@ -797,20 +598,33 @@ $(function() {
 	}
 	setTimeout(updateDateMarkers, msUntilNextDay());
 
-	// Only start opening socket.io connection after all events have been registered
-	socket.open();
-
 	window.addEventListener("popstate", (e) => {
 		const {state} = e;
 		if (!state) {
 			return;
 		}
 
-		const {clickTarget} = state;
+		let {clickTarget} = state;
+
 		if (clickTarget) {
+			// This will be true when click target corresponds to opening a thumbnail,
+			// browsing to the previous/next thumbnail, or closing the image viewer.
+			const imageViewerRelated = clickTarget.includes(".toggle-thumbnail");
+
+			// If the click target is not related to the image viewer but the viewer
+			// is currently opened, we need to close it.
+			if (!imageViewerRelated && $("#image-viewer").hasClass("opened")) {
+				clickTarget += ", #image-viewer";
+			}
+
+			// Emit the click to the target, while making sure it is not going to be
+			// added to the state again.
 			$(clickTarget).trigger("click", {
 				pushState: false
 			});
 		}
 	});
+
+	// Only start opening socket.io connection after all events have been registered
+	socket.open();
 });

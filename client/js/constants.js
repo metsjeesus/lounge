@@ -20,34 +20,44 @@ const colorCodeMap = [
 ];
 
 const commands = [
+	"/as",
 	"/away",
 	"/back",
 	"/ban",
 	"/banlist",
+	"/bs",
 	"/close",
 	"/collapse",
 	"/connect",
+	"/cs",
 	"/ctcp",
 	"/cycle",
 	"/deop",
 	"/devoice",
 	"/disconnect",
 	"/expand",
+	"/ho",
+	"/hs",
 	"/invite",
 	"/join",
 	"/kick",
 	"/leave",
+	"/list",
 	"/me",
 	"/mode",
+	"/ms",
 	"/msg",
 	"/nick",
 	"/notice",
+	"/ns",
 	"/op",
+	"/os",
 	"/part",
 	"/query",
 	"/quit",
 	"/raw",
 	"/rejoin",
+	"/rs",
 	"/say",
 	"/send",
 	"/server",
@@ -59,6 +69,8 @@ const commands = [
 ];
 
 const actionTypes = [
+	"away",
+	"back",
 	"ban_list",
 	"invite",
 	"join",
@@ -76,6 +88,8 @@ const actionTypes = [
 ];
 
 const condensedTypes = [
+	"away",
+	"back",
 	"join",
 	"part",
 	"quit",

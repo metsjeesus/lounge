@@ -13,6 +13,8 @@ require("string.prototype.at");
 var Helper = {
 	config: null,
 	expandHome: expandHome,
+	getPackagesPath: getPackagesPath,
+	getPackageModulePath: getPackageModulePath,
 	getStoragePath: getStoragePath,
 	getUserConfigPath: getUserConfigPath,
 	getUserLogsPath: getUserLogsPath,
@@ -85,6 +87,14 @@ function setHome(homePath) {
 		log.warn("debug option is now an object, see defaults file for more information.");
 		this.config.debug = {ircFramework: true};
 	}
+
+	// TODO: Remove in future release
+	// Backwards compatibility for old way of specifying themes in settings
+	if (this.config.theme.includes(".css")) {
+		log.warn(`Referring to CSS files in the ${colors.green("theme")} setting of ${colors.green(Helper.CONFIG_PATH)} is ${colors.bold("deprecated")} and will be removed in a future version.`);
+	} else {
+		this.config.theme = `themes/${this.config.theme}.css`;
+	}
 }
 
 function getUserConfigPath(name) {
@@ -97,6 +107,14 @@ function getUserLogsPath(name, network) {
 
 function getStoragePath() {
 	return path.join(this.HOME, "storage");
+}
+
+function getPackagesPath() {
+	return path.join(this.HOME, "packages", "node_modules");
+}
+
+function getPackageModulePath(packageName) {
+	return path.join(Helper.getPackagesPath(), packageName);
 }
 
 function ip2hex(address) {
