@@ -544,7 +544,12 @@ Client.prototype.quit = function(signOut) {
 Client.prototype.clientAttach = function(socketId, token) {
 	var client = this;
 	var save = false;
-
+	
+	if(client.removeTimeout){
+		log.debug(`User ${colors.bold(client.name)} reconnected, stopped removing user`);
+		clearTimeout(client.removeTimeout);
+	}
+	
 	if (client.awayMessage && _.size(client.attachedClients) === 0) {
 		client.networks.forEach(function(network) {
 			// Only remove away on client attachment if
@@ -582,6 +587,11 @@ Client.prototype.clientAttach = function(socketId, token) {
 	}
 };
 
+Client.prototype.removeClient = function(client){
+	log.debug(`User ${colors.bold(client.name)} left, removing user`);
+	client.manager.removeUser(client.name)
+}
+
 Client.prototype.clientDetach = function(socketId) {
 	const client = this;
 
@@ -596,6 +606,12 @@ Client.prototype.clientDetach = function(socketId) {
 			}
 		});
 	}
+	
+	if(Helper.config.DisconnectTimeout >= 0 && _.size(client.attachedClients) === 0){
+		log.debug(`All ${colors.bold(client.name)} clients detached, calling removeClient timeout`)
+		client.removeTimeout = setTimeout(client.removeClient, Helper.config.DisconnectTimeout, client);
+	}
+	
 };
 
 Client.prototype.registerPushSubscription = function(session, subscription, noSave) {

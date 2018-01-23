@@ -147,7 +147,20 @@ module.exports = {
 	// @type     string | function(client, args):object(webirc)
 	// @default  null
 	webirc: null,
-
+	
+	//
+	// DisconnectTimeout
+	//
+	// If enabled, user will be removed after no clients have connected on this timeout period.
+	// @example -1 means it never gets removed
+	// @example 0 means it will be removeuser as soon as last client socket disconnects
+	// @example 60000 will remove user after one minute of no clients connected.
+	//
+	// @type     int
+	// @default  -1
+	//
+	DisconnectTimeout: -1,
+	
 	//
 	// Log settings
 	//
