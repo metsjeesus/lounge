@@ -1,33 +1,33 @@
 "use strict";
 
-var expect = require("chai").expect;
+const expect = require("chai").expect;
 
-var Chan = require("../../src/models/chan");
-var ModeCommand = require("../../src/plugins/inputs/mode");
+const Chan = require("../../src/models/chan");
+const ModeCommand = require("../../src/plugins/inputs/mode");
 
-describe("Commands", function() {
-	describe("/mode", function() {
+describe("Commands", function () {
+	describe("/mode", function () {
 		const channel = new Chan({
-			name: "#thelounge"
+			name: "#thelounge",
 		});
 
 		const lobby = new Chan({
 			name: "Network Lobby",
-			type: Chan.Type.LOBBY
+			type: Chan.Type.LOBBY,
 		});
 
 		const testableNetwork = {
 			lastCommand: null,
 			nick: "xPaw",
 			irc: {
-				raw: function() {
-					testableNetwork.lastCommand = Array.prototype.join.call(arguments, " ");
-				}
-			}
+				raw(...args) {
+					testableNetwork.lastCommand = args.join(" ");
+				},
+			},
 		};
 
-		it("should not mess with the given target", function() {
-			const test = function(expected, args) {
+		it("should not mess with the given target", function () {
+			const test = function (expected, args) {
 				ModeCommand.input(testableNetwork, channel, "mode", Array.from(args));
 				expect(testableNetwork.lastCommand).to.equal(expected);
 
@@ -43,7 +43,7 @@ describe("Commands", function() {
 			test("MODE #thelounge", ["#thelounge"]);
 		});
 
-		it("should assume target if none given", function() {
+		it("should assume target if none given", function () {
 			ModeCommand.input(testableNetwork, channel, "mode", []);
 			expect(testableNetwork.lastCommand).to.equal("MODE #thelounge");
 
@@ -63,7 +63,7 @@ describe("Commands", function() {
 			expect(testableNetwork.lastCommand).to.equal("MODE xPaw -i idk");
 		});
 
-		it("should support shorthand commands", function() {
+		it("should support shorthand commands", function () {
 			ModeCommand.input(testableNetwork, channel, "op", ["xPaw"]);
 			expect(testableNetwork.lastCommand).to.equal("MODE #thelounge +o xPaw");
 

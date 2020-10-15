@@ -1,11 +1,21 @@
 "use strict";
 
-const $ = require("jquery");
-const renderPreview = require("../renderPreview");
-const socket = require("../socket");
+import Vue from "vue";
 
-socket.on("msg:preview", function(data) {
-	const msg = $("#msg-" + data.id);
+import socket from "../socket";
+import store from "../store";
 
-	renderPreview(data.preview, msg);
+socket.on("msg:preview", function (data) {
+	const {channel} = store.getters.findChannel(data.chan);
+	const message = channel.messages.find((m) => m.id === data.id);
+
+	if (!message) {
+		return;
+	}
+
+	const previewIndex = message.previews.findIndex((m) => m.link === data.preview.link);
+
+	if (previewIndex > -1) {
+		Vue.set(message.previews, previewIndex, data.preview);
+	}
 });

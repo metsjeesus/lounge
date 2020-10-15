@@ -1,36 +1,24 @@
 "use strict";
 
-const $ = require("jquery");
-const socket = require("../socket");
-const render = require("../render");
-const chat = $("#chat");
-const templates = require("../../views");
-const sidebar = $("#sidebar");
+import socket from "../socket";
+import store from "../store";
+import {switchToChannel} from "../router";
 
-socket.on("join", function(data) {
-	const id = data.network;
-	const network = sidebar.find("#network-" + id);
-	network.append(
-		templates.chan({
-			channels: [data.chan]
-		})
-	);
-	chat.append(
-		templates.chat({
-			channels: [data.chan]
-		})
-	);
-	render.renderChannel(data.chan);
+socket.on("join", function (data) {
+	store.getters.initChannel(data.chan);
+
+	const network = store.getters.findNetwork(data.network);
+
+	if (!network) {
+		return;
+	}
+
+	network.channels.splice(data.index || -1, 0, data.chan);
 
 	// Queries do not automatically focus, unless the user did a whois
 	if (data.chan.type === "query" && !data.shouldOpen) {
 		return;
 	}
 
-	sidebar.find(".chan")
-		.sort(function(a, b) {
-			return $(a).data("id") - $(b).data("id");
-		})
-		.last()
-		.click();
+	switchToChannel(store.getters.findChannel(data.chan.id).channel);
 });

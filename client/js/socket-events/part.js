@@ -1,17 +1,21 @@
 "use strict";
 
-const $ = require("jquery");
-const socket = require("../socket");
-const sidebar = $("#sidebar");
+import socket from "../socket";
+import store from "../store";
+import {switchToChannel} from "../router";
 
-socket.on("part", function(data) {
-	const chanMenuItem = sidebar.find(".chan[data-id='" + data.chan + "']");
-
+socket.on("part", function (data) {
 	// When parting from the active channel/query, jump to the network's lobby
-	if (chanMenuItem.hasClass("active")) {
-		chanMenuItem.parent(".network").find(".lobby").click();
+	if (store.state.activeChannel && store.state.activeChannel.channel.id === data.chan) {
+		switchToChannel(store.state.activeChannel.network.channels[0]);
 	}
 
-	chanMenuItem.remove();
-	$("#chan-" + data.chan).remove();
+	const channel = store.getters.findChannel(data.chan);
+
+	if (channel) {
+		channel.network.channels.splice(
+			channel.network.channels.findIndex((c) => c.id === data.chan),
+			1
+		);
+	}
 });

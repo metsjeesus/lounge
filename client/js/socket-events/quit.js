@@ -1,18 +1,24 @@
 "use strict";
 
-const $ = require("jquery");
-const socket = require("../socket");
-const sidebar = $("#sidebar");
+import socket from "../socket";
+import {switchToChannel, navigate} from "../router";
+import store from "../store";
 
-socket.on("quit", function(data) {
-	const id = data.network;
-	sidebar.find("#network-" + id)
-		.remove()
-		.end();
-	const chan = sidebar.find(".chan")
-		.eq(0)
-		.trigger("click");
-	if (chan.length === 0) {
-		sidebar.find(".empty").show();
+socket.on("quit", function (data) {
+	// If we're in a channel, and it's on the network that is being removed,
+	// then open another channel window
+	const isCurrentNetworkBeingRemoved =
+		store.state.activeChannel && store.state.activeChannel.network.uuid === data.network;
+
+	store.commit("removeNetwork", data.network);
+
+	if (!isCurrentNetworkBeingRemoved) {
+		return;
+	}
+
+	if (store.state.networks.length > 0) {
+		switchToChannel(store.state.networks[0].channels[0]);
+	} else {
+		navigate("Connect");
 	}
 });

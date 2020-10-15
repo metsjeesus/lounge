@@ -1,68 +1,69 @@
 "use strict";
 
-const $ = require("jquery");
-const fuzzy = require("fuzzy");
-const emojiMap = require("./libs/simplemap.json");
-const options = require("./options");
 const constants = require("./constants");
-require("jquery-textcomplete");
-require("./libs/jquery/tabcomplete");
 
-const chat = $("#chat");
-const sidebar = $("#sidebar");
+import Mousetrap from "mousetrap";
+import {Textcomplete, Textarea} from "textcomplete";
+import fuzzy from "fuzzy";
+
+import emojiMap from "./helpers/simplemap.json";
+import store from "./store";
+
+export default enableAutocomplete;
+
 const emojiSearchTerms = Object.keys(emojiMap);
 const emojiStrategy = {
 	id: "emoji",
-	match: /\B:([-+\w:?]{2,}):?$/,
+	match: /(^|\s):([-+\w:?]{2,}):?$/,
 	search(term, callback) {
 		// Trim colon from the matched term,
 		// as we are unable to get a clean string from match regex
-		term = term.replace(/:$/, ""),
+		term = term.replace(/:$/, "");
 		callback(fuzzyGrep(term, emojiSearchTerms));
 	},
 	template([string, original]) {
 		return `<span class="emoji">${emojiMap[original]}</span> ${string}`;
 	},
 	replace([, original]) {
-		return emojiMap[original];
+		return "$1" + emojiMap[original];
 	},
-	index: 1
+	index: 2,
 };
 
 const nicksStrategy = {
 	id: "nicks",
-	match: /\B(@([a-zA-Z_[\]\\^{}|`@][a-zA-Z0-9_[\]\\^{}|`-]*)?)$/,
+	match: /(^|\s)(@([a-zA-Z_[\]\\^{}|`@][a-zA-Z0-9_[\]\\^{}|`-]*)?)$/,
 	search(term, callback) {
 		term = term.slice(1);
+
 		if (term[0] === "@") {
-			callback(completeNicks(term.slice(1), true)
-				.map((val) => ["@" + val[0], "@" + val[1]]));
+			callback(completeNicks(term.slice(1), true).map((val) => ["@" + val[0], "@" + val[1]]));
 		} else {
 			callback(completeNicks(term, true));
 		}
 	},
-	template([string, ]) {
+	template([string]) {
 		return string;
 	},
 	replace([, original]) {
-		return original;
+		return "$1" + replaceNick(original);
 	},
-	index: 1
+	index: 2,
 };
 
 const chanStrategy = {
 	id: "chans",
-	match: /\B((#|\+|&|![A-Z0-9]{5})([^\x00\x0A\x0D\x20\x2C\x3A]+(:[^\x00\x0A\x0D\x20\x2C\x3A]*)?)?)$/,
-	search(term, callback, match) {
-		callback(completeChans(match[0]));
+	match: /(^|\s)((?:#|\+|&|![A-Z0-9]{5})(?:[^\s]+)?)$/,
+	search(term, callback) {
+		callback(completeChans(term));
 	},
-	template([string,]) {
+	template([string]) {
 		return string;
 	},
 	replace([, original]) {
-		return original;
+		return "$1" + original;
 	},
-	index: 1
+	index: 2,
 };
 
 const commandStrategy = {
@@ -71,13 +72,13 @@ const commandStrategy = {
 	search(term, callback) {
 		callback(completeCommands("/" + term));
 	},
-	template([string, ]) {
+	template([string]) {
 		return string;
 	},
 	replace([, original]) {
 		return original;
 	},
-	index: 1
+	index: 1,
 };
 
 const foregroundColorStrategy = {
@@ -90,11 +91,15 @@ const foregroundColorStrategy = {
 			.filter((i) => fuzzy.test(term, i[0]) || fuzzy.test(term, i[1]))
 			.map((i) => {
 				if (fuzzy.test(term, i[1])) {
-					return [i[0], fuzzy.match(term, i[1], {
-						pre: "<b>",
-						post: "</b>"
-					}).rendered];
+					return [
+						i[0],
+						fuzzy.match(term, i[1], {
+							pre: "<b>",
+							post: "</b>",
+						}).rendered,
+					];
 				}
+
 				return i;
 			});
 
@@ -106,7 +111,7 @@ const foregroundColorStrategy = {
 	replace(value) {
 		return "\x03" + value[0];
 	},
-	index: 1
+	index: 1,
 };
 
 const backgroundColorStrategy = {
@@ -118,11 +123,15 @@ const backgroundColorStrategy = {
 			.filter((i) => fuzzy.test(term, i[0]) || fuzzy.test(term, i[1]))
 			.map((pair) => {
 				if (fuzzy.test(term, pair[1])) {
-					return [pair[0], fuzzy.match(term, pair[1], {
-						pre: "<b>",
-						post: "</b>"
-					}).rendered];
+					return [
+						pair[0],
+						fuzzy.match(term, pair[1], {
+							pre: "<b>",
+							post: "</b>",
+						}).rendered,
+					];
 				}
+
 				return pair;
 			})
 			.map((pair) => pair.concat(match[1])); // Needed to pass fg color to `template`...
@@ -130,70 +139,176 @@ const backgroundColorStrategy = {
 		callback(matchingColorCodes);
 	},
 	template(value) {
-		return `<span class="irc-fg${parseInt(value[2], 10)} irc-bg irc-bg${parseInt(value[0], 10)}">${value[1]}</span>`;
+		return `<span class="irc-fg${parseInt(value[2], 10)} irc-bg irc-bg${parseInt(
+			value[0],
+			10
+		)}">${value[1]}</span>`;
 	},
 	replace(value) {
 		return "\x03$1," + value[0];
 	},
-	index: 2
+	index: 2,
 };
 
-const input = $("#input")
-	.tab((word) => completeNicks(word, false), {hint: false})
-	.on("autocomplete:on", function() {
-		enableAutocomplete();
+function enableAutocomplete(input) {
+	let tabCount = 0;
+	let lastMatch = "";
+	let currentMatches = [];
+
+	input.addEventListener("input", (e) => {
+		if (e.detail === "autocomplete") {
+			return;
+		}
+
+		tabCount = 0;
+		currentMatches = [];
+		lastMatch = "";
 	});
 
-if (options.autocomplete) {
-	enableAutocomplete();
-}
+	Mousetrap(input).bind(
+		"tab",
+		(e) => {
+			if (store.state.isAutoCompleting) {
+				return;
+			}
 
-function enableAutocomplete() {
-	input.textcomplete([
-		emojiStrategy, nicksStrategy, chanStrategy, commandStrategy,
-		foregroundColorStrategy, backgroundColorStrategy
-	], {
-		dropdownClassName: "textcomplete-menu",
-		placement: "top"
-	}).on({
-		"textComplete:show": function() {
-			$(this).data("autocompleting", true);
+			e.preventDefault();
+
+			const text = input.value;
+
+			if (tabCount === 0) {
+				lastMatch = text.substring(0, input.selectionStart).split(/\s/).pop();
+
+				if (lastMatch.length === 0) {
+					return;
+				}
+
+				currentMatches = completeNicks(lastMatch, false);
+
+				if (currentMatches.length === 0) {
+					return;
+				}
+			}
+
+			const position = input.selectionStart - lastMatch.length;
+			const newMatch = replaceNick(
+				currentMatches[tabCount % currentMatches.length],
+				position
+			);
+			const remainder = text.substr(input.selectionStart);
+
+			input.value = text.substr(0, position) + newMatch + remainder;
+			input.selectionStart -= remainder.length;
+			input.selectionEnd = input.selectionStart;
+
+			// Propagate change to Vue model
+			input.dispatchEvent(
+				new CustomEvent("input", {
+					detail: "autocomplete",
+				})
+			);
+
+			lastMatch = newMatch;
+			tabCount++;
 		},
-		"textComplete:hide": function() {
-			$(this).data("autocompleting", false);
+		"keydown"
+	);
+
+	const editor = new Textarea(input);
+	const textcomplete = new Textcomplete(editor, {
+		dropdown: {
+			className: "textcomplete-menu",
+			placement: "top",
+		},
+	});
+
+	textcomplete.register([
+		emojiStrategy,
+		nicksStrategy,
+		chanStrategy,
+		commandStrategy,
+		foregroundColorStrategy,
+		backgroundColorStrategy,
+	]);
+
+	// Activate the first item by default
+	// https://github.com/yuku-t/textcomplete/issues/93
+	textcomplete.on("rendered", () => {
+		if (textcomplete.dropdown.items.length > 0) {
+			textcomplete.dropdown.items[0].activate();
 		}
 	});
+
+	textcomplete.on("show", () => {
+		store.commit("isAutoCompleting", true);
+	});
+
+	textcomplete.on("hidden", () => {
+		store.commit("isAutoCompleting", false);
+	});
+
+	return {
+		hide() {
+			textcomplete.hide();
+		},
+		destroy() {
+			textcomplete.destroy();
+			store.commit("isAutoCompleting", false);
+		},
+	};
+}
+
+function replaceNick(original, position = 1) {
+	// If no postfix specified, return autocompleted nick as-is
+	if (!store.state.settings.nickPostfix) {
+		return original;
+	}
+
+	// If there is whitespace in the input already, append space to nick
+	if (position > 0 && /\s/.test(store.state.activeChannel.channel.pendingMessage)) {
+		return original + " ";
+	}
+
+	// If nick is first in the input, append specified postfix
+	return original + store.state.settings.nickPostfix;
 }
 
 function fuzzyGrep(term, array) {
-	const results = fuzzy.filter(
-		term,
-		array,
-		{
-			pre: "<b>",
-			post: "</b>"
-		}
-	);
+	const results = fuzzy.filter(term, array, {
+		pre: "<b>",
+		post: "</b>",
+	});
 	return results.map((el) => [el.string, el.original]);
 }
 
+function rawNicks() {
+	if (store.state.activeChannel.channel.users.length > 0) {
+		const users = store.state.activeChannel.channel.users.slice();
+
+		return users.sort((a, b) => b.lastMessage - a.lastMessage).map((u) => u.nick);
+	}
+
+	const me = store.state.activeChannel.network.nick;
+	const otherUser = store.state.activeChannel.channel.name;
+
+	// If this is a query, add their name to autocomplete
+	if (me !== otherUser && store.state.activeChannel.channel.type === "query") {
+		return [otherUser, me];
+	}
+
+	// Return our own name by default for anything that isn't a channel or query
+	return [me];
+}
+
 function completeNicks(word, isFuzzy) {
-	const users = chat.find(".active .users");
+	const users = rawNicks();
 	word = word.toLowerCase();
 
-	// Lobbies and private chats do not have an user list
-	if (!users.length) {
-		return [];
+	if (isFuzzy) {
+		return fuzzyGrep(word, users);
 	}
 
-	const words = users.data("nicks");
-	if (isFuzzy) {
-		return fuzzyGrep(word, words);
-	}
-	return $.grep(
-		words,
-		(w) => !w.toLowerCase().indexOf(word)
-	);
+	return users.filter((w) => !w.toLowerCase().indexOf(word));
 }
 
 function completeCommands(word) {
@@ -205,13 +320,12 @@ function completeCommands(word) {
 function completeChans(word) {
 	const words = [];
 
-	sidebar.find(".chan")
-		.each(function() {
-			const self = $(this);
-			if (!self.hasClass("lobby")) {
-				words.push(self.data("title"));
-			}
-		});
+	for (const channel of store.state.activeChannel.network.channels) {
+		// Push all channels that start with the same CHANTYPE
+		if (channel.type === "channel" && channel.name[0] === word[0]) {
+			words.push(channel.name);
+		}
+	}
 
 	return fuzzyGrep(word, words);
 }

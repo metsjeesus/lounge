@@ -1,31 +1,35 @@
 "use strict";
 
-var _ = require("lodash");
+const _ = require("lodash");
 
 module.exports = User;
 
 function User(attr, prefixLookup) {
 	_.defaults(this, attr, {
 		modes: [],
-		mode: "",
+		away: "",
 		nick: "",
 		lastMessage: 0,
+	});
+
+	Object.defineProperty(this, "mode", {
+		get() {
+			return this.modes[0] || "";
+		},
 	});
 
 	this.setModes(this.modes, prefixLookup);
 }
 
-User.prototype.setModes = function(modes, prefixLookup) {
-	// irc-framework sets character mode, but lounge works with symbols
+User.prototype.setModes = function (modes, prefixLookup) {
+	// irc-framework sets character mode, but The Lounge works with symbols
 	this.modes = modes.map((mode) => prefixLookup[mode]);
-
-	this.mode = this.modes[0] || "";
 };
 
-User.prototype.toJSON = function() {
+User.prototype.toJSON = function () {
 	return {
 		nick: this.nick,
-		mode: this.mode,
+		modes: this.modes,
 		lastMessage: this.lastMessage,
 	};
 };

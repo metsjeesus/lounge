@@ -2,26 +2,36 @@
 
 exports.commands = ["notice"];
 
-exports.input = function(network, chan, cmd, args) {
+exports.input = function (network, chan, cmd, args) {
 	if (!args[1]) {
 		return;
 	}
 
-	var message = args.slice(1).join(" ");
-	var irc = network.irc;
-	irc.notice(args[0], message);
+	let targetName = args[0];
+	let message = args.slice(1).join(" ");
 
-	var targetChan = network.getChannel(args[0]);
-	if (typeof targetChan === "undefined") {
-		message = "{to " + args[0] + "} " + message;
-		targetChan = chan;
-	}
+	network.irc.notice(targetName, message);
 
 	if (!network.irc.network.cap.isEnabled("echo-message")) {
-		irc.emit("notice", {
-			nick: irc.user.nick,
-			target: targetChan.name,
-			message: message
+		let targetGroup;
+		const parsedTarget = network.irc.network.extractTargetGroup(targetName);
+
+		if (parsedTarget) {
+			targetName = parsedTarget.target;
+			targetGroup = parsedTarget.target_group;
+		}
+
+		const targetChan = network.getChannel(targetName);
+
+		if (typeof targetChan === "undefined") {
+			message = "{to " + args[0] + "} " + message;
+		}
+
+		network.irc.emit("notice", {
+			nick: network.irc.user.nick,
+			target: targetName,
+			group: targetGroup,
+			message: message,
 		});
 	}
 

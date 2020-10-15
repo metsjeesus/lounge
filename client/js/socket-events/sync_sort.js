@@ -1,50 +1,27 @@
 "use strict";
 
-const $ = require("jquery");
-const socket = require("../socket");
-const options = require("../options");
+import socket from "../socket";
+import store from "../store";
 
-socket.on("sync_sort", function(data) {
-	// Syncs the order of channels or networks when they are reordered
-	if (options.ignoreSortSync) {
-		options.ignoreSortSync = false;
-		return; // Ignore syncing because we 'caused' it
-	}
-
-	const type = data.type;
+socket.on("sync_sort", function (data) {
 	const order = data.order;
 
-	if (type === "networks") {
-		const container = $(".networks");
+	switch (data.type) {
+		case "networks":
+			store.commit("sortNetworks", (a, b) => order.indexOf(a.uuid) - order.indexOf(b.uuid));
 
-		$.each(order, function(index, value) {
-			const position = $(container.children()[index]);
+			break;
 
-			if (position.data("id") === value) { // Network in correct place
-				return true; // No point in continuing
+		case "channels": {
+			const network = store.getters.findNetwork(data.target);
+
+			if (!network) {
+				return;
 			}
 
-			const network = container.find("#network-" + value);
+			network.channels.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 
-			$(network).insertBefore(position);
-		});
-	} else if (type === "channels") {
-		const network = $("#network-" + data.target);
-
-		$.each(order, function(index, value) {
-			if (index === 0) { // Shouldn't attempt to move lobby
-				return true; // same as `continue` -> skip to next item
-			}
-
-			const position = $(network.children()[index]); // Target channel at position
-
-			if (position.data("id") === value) { // Channel in correct place
-				return true; // No point in continuing
-			}
-
-			const channel = network.find(".chan[data-id=" + value + "]"); // Channel at position
-
-			$(channel).insertBefore(position);
-		});
+			break;
+		}
 	}
 });

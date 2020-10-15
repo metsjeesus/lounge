@@ -1,20 +1,37 @@
 "use strict";
 
-var Msg = require("../../models/msg");
+const Msg = require("../../models/msg");
 
-module.exports = function(irc, network) {
-	var client = this;
+module.exports = function (irc, network) {
+	const client = this;
 
-	irc.on("unknown command", function(command) {
+	irc.on("unknown command", function (command) {
+		let target = network.channels[0];
+
 		// Do not display users own name
-		if (command.params[0] === network.irc.user.nick) {
+		if (command.params.length > 0 && command.params[0] === network.irc.user.nick) {
 			command.params.shift();
 		}
 
-		network.channels[0].pushMessage(client, new Msg({
-			type: Msg.Type.UNHANDLED,
-			command: command.command,
-			params: command.params
-		}), true);
+		// Check the length again because we may shift the nick above
+		if (command.params.length > 0) {
+			// If this numeric starts with a channel name that exists
+			// put this message in that channel
+			const channel = network.getChannel(command.params[0]);
+
+			if (typeof channel !== "undefined") {
+				target = channel;
+			}
+		}
+
+		target.pushMessage(
+			client,
+			new Msg({
+				type: Msg.Type.UNHANDLED,
+				command: command.command,
+				params: command.params,
+			}),
+			true
+		);
 	});
 };

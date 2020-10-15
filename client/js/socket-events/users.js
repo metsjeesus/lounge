@@ -1,17 +1,18 @@
 "use strict";
 
-const $ = require("jquery");
-const socket = require("../socket");
-const chat = $("#chat");
+import socket from "../socket";
+import store from "../store";
 
-socket.on("users", function(data) {
-	const chan = chat.find("#chan-" + data.chan);
-
-	if (chan.hasClass("active")) {
-		socket.emit("names", {
-			target: data.chan
+socket.on("users", function (data) {
+	if (store.state.activeChannel && store.state.activeChannel.channel.id === data.chan) {
+		return socket.emit("names", {
+			target: data.chan,
 		});
-	} else {
-		chan.data("needsNamesRefresh", true);
+	}
+
+	const channel = store.getters.findChannel(data.chan);
+
+	if (channel) {
+		channel.channel.usersOutdated = true;
 	}
 });

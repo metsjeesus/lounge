@@ -1,30 +1,40 @@
 "use strict";
 
-var _ = require("lodash");
-var colors = require("colors/safe");
-var pkg = require("../package.json");
-var Chan = require("./models/chan");
-var crypto = require("crypto");
-var userLog = require("./userLog");
-var Msg = require("./models/msg");
-var Network = require("./models/network");
-var ircFramework = require("irc-framework");
-var Helper = require("./helper");
+const _ = require("lodash");
+const log = require("./log");
+const colors = require("chalk");
+const Chan = require("./models/chan");
+const crypto = require("crypto");
+const Msg = require("./models/msg");
+const Network = require("./models/network");
+const Helper = require("./helper");
 const UAParser = require("ua-parser-js");
+const {v4: uuidv4} = require("uuid");
+const escapeRegExp = require("lodash/escapeRegExp");
+const constants = require("../client/js/constants.js");
+const inputs = require("./plugins/inputs");
+const PublicClient = require("./plugins/packages/publicClient");
+
+const MessageStorage = require("./plugins/messageStorage/sqlite");
+const TextFileMessageStorage = require("./plugins/messageStorage/text");
 
 module.exports = Client;
 
-var id = 0;
-var events = [
+const events = [
+	"away",
+	"cap",
 	"connection",
 	"unhandled",
-	"banlist",
 	"ctcp",
+	"chghost",
 	"error",
+	"help",
+	"info",
 	"invite",
 	"join",
 	"kick",
 	"mode",
+	"modelist",
 	"motd",
 	"message",
 	"names",
@@ -34,66 +44,69 @@ var events = [
 	"topic",
 	"welcome",
 	"list",
-	"whois"
+	"whois",
 ];
-var inputs = [
-	"ban",
-	"ctcp",
-	"msg",
-	"part",
-	"rejoin",
-	"action",
-	"away",
-	"connect",
-	"disconnect",
-	"invite",
-	"kick",
-	"mode",
-	"nick",
-	"notice",
-	"query",
-	"quit",
-	"raw",
-	"topic",
-	"list",
-	"whois"
-].reduce(function(plugins, name) {
-	var path = "./plugins/inputs/" + name;
-	var plugin = require(path);
-	plugin.commands.forEach((command) => plugins[command] = plugin);
-	return plugins;
-}, {});
 
-function Client(manager, name, config) {
-	if (typeof config !== "object") {
-		config = {};
-	}
-
+function Client(manager, name, config = {}) {
 	_.merge(this, {
-		awayMessage: config.awayMessage || "",
+		awayMessage: "",
 		lastActiveChannel: -1,
 		attachedClients: {},
 		config: config,
-		id: id++,
+		id: uuidv4(),
+		idChan: 1,
+		idMsg: 1,
 		name: name,
 		networks: [],
-		sockets: manager.sockets,
-		manager: manager
+		mentions: [],
+		manager: manager,
+		messageStorage: [],
+		highlightRegex: null,
+		highlightExceptionRegex: null,
 	});
 
-	var client = this;
+	const client = this;
 
-	var delay = 0;
-	(client.config.networks || []).forEach((n) => {
-		setTimeout(function() {
-			client.connect(n);
-		}, delay);
-		delay += 1000;
-	});
+	client.config.log = Boolean(client.config.log);
+	client.config.password = String(client.config.password);
 
-	if (typeof client.config.sessions !== "object") {
+	if (!Helper.config.public && client.config.log) {
+		if (Helper.config.messageStorage.includes("sqlite")) {
+			client.messageStorage.push(new MessageStorage(client));
+		}
+
+		if (Helper.config.messageStorage.includes("text")) {
+			client.messageStorage.push(new TextFileMessageStorage(client));
+		}
+
+		for (const messageStorage of client.messageStorage) {
+			messageStorage.enable();
+		}
+	}
+
+	if (!_.isPlainObject(client.config.sessions)) {
 		client.config.sessions = {};
 	}
+
+	if (!_.isPlainObject(client.config.clientSettings)) {
+		client.config.clientSettings = {};
+	}
+
+	if (!_.isPlainObject(client.config.browser)) {
+		client.config.browser = {};
+	}
+
+	// TODO: Backwards compatibility with older versions, remove in a future release?
+	if (client.config.awayMessage) {
+		client.config.clientSettings.awayMessage = client.config.awayMessage;
+		delete client.config.awayMessage;
+	}
+
+	if (client.config.clientSettings.awayMessage) {
+		client.awayMessage = client.config.clientSettings.awayMessage;
+	}
+
+	client.compileCustomHighlights();
 
 	_.forOwn(client.config.sessions, (session) => {
 		if (session.pushSubscription) {
@@ -101,69 +114,77 @@ function Client(manager, name, config) {
 		}
 	});
 
+	(client.config.networks || []).forEach((network) => client.connect(network, true));
+
+	// Networks are stored directly in the client object
+	// We don't need to keep it in the config object
+	delete client.config.networks;
+
 	if (client.name) {
 		log.info(`User ${colors.bold(client.name)} loaded`);
+
+		// Networks are created instantly, but to reduce server load on startup
+		// We randomize the IRC connections and channel log loading
+		let delay = manager.clients.length * 500;
+		client.networks.forEach((network) => {
+			setTimeout(() => {
+				network.channels.forEach((channel) => channel.loadMessages(client, network));
+
+				if (!network.userDisconnected && network.irc) {
+					network.irc.connect();
+				}
+			}, delay);
+
+			delay += 1000 + Math.floor(Math.random() * 1000);
+		});
+
+		client.fileHash = manager.getDataToSave(client).newHash;
 	}
 }
 
-Client.prototype.isRegistered = function() {
-	return this.name.length > 0;
+Client.prototype.createChannel = function (attr) {
+	const chan = new Chan(attr);
+	chan.id = this.idChan++;
+
+	return chan;
 };
 
-Client.prototype.emit = function(event, data) {
-	if (this.sockets !== null) {
-		this.sockets.in(this.id).emit(event, data);
-	}
-	if (this.config.log === true) {
-		if (event === "msg") {
-			var target = this.find(data.chan);
-			if (target) {
-				var chan = target.chan.name;
-				if (target.chan.type === Chan.Type.LOBBY) {
-					chan = target.network.host;
-				}
-				userLog.write(
-					this.name,
-					target.network.host,
-					chan,
-					data.msg
-				);
-			}
-		}
+Client.prototype.emit = function (event, data) {
+	if (this.manager !== null) {
+		this.manager.sockets.in(this.id).emit(event, data);
 	}
 };
 
-Client.prototype.find = function(channelId) {
-	var network = null;
-	var chan = null;
-	for (var i in this.networks) {
-		var n = this.networks[i];
+Client.prototype.find = function (channelId) {
+	let network = null;
+	let chan = null;
+
+	for (const i in this.networks) {
+		const n = this.networks[i];
 		chan = _.find(n.channels, {id: channelId});
+
 		if (chan) {
 			network = n;
 			break;
 		}
 	}
+
 	if (network && chan) {
-		return {
-			network: network,
-			chan: chan
-		};
+		return {network, chan};
 	}
 
 	return false;
 };
 
-Client.prototype.connect = function(args) {
-	var config = Helper.config;
-	var client = this;
+Client.prototype.connect = function (args, isStartup = false) {
+	const client = this;
+	let channels = [];
 
-	var nick = args.nick || "lounge-user";
-	var webirc = null;
-	var channels = [];
+	// Get channel id for lobby before creating other channels for nicer ids
+	const lobbyChannelId = client.idChan++;
 
 	if (args.channels) {
-		var badName = false;
+		let badName = false;
 
 		args.channels.forEach((chan) => {
 			if (!chan.name) {
@@ -171,133 +192,102 @@ Client.prototype.connect = function(args) {
 				return;
 			}
 
-			channels.push(new Chan({
-				name: chan.name,
-				key: chan.key || "",
-			}));
+			channels.push(
+				client.createChannel({
+					name: chan.name,
+					key: chan.key || "",
+					type: chan.type,
+				})
+			);
 		});
 
 		if (badName && client.name) {
-			log.warn("User '" + client.name + "' on network '" + args.name + "' has an invalid channel which has been ignored");
+			log.warn(
+				"User '" +
+					client.name +
+					"' on network '" +
+					args.name +
+					"' has an invalid channel which has been ignored"
+			);
 		}
-	// `join` is kept for backwards compatibility when updating from versions <2.0
-	// also used by the "connect" window
+		// `join` is kept for backwards compatibility when updating from versions <2.0
+		// also used by the "connect" window
 	} else if (args.join) {
 		channels = args.join
 			.replace(/,/g, " ")
 			.split(/\s+/g)
-			.map(function(chan) {
-				return new Chan({
-					name: chan
+			.map((chan) => {
+				if (!chan.match(/^[#&!+]/)) {
+					chan = `#${chan}`;
+				}
+
+				return client.createChannel({
+					name: chan,
 				});
 			});
 	}
 
-	args.ip = args.ip || (client.config && client.config.ip) || client.ip;
-	args.hostname = args.hostname || (client.config && client.config.hostname) || client.hostname;
-
-	var network = new Network({
-		name: args.name || (config.displayNetwork ? "" : config.defaults.name) || "",
-		host: args.host || "",
-		port: parseInt(args.port, 10) || (args.tls ? 6697 : 6667),
+	const network = new Network({
+		uuid: args.uuid,
+		name: String(
+			args.name || (Helper.config.lockNetwork ? Helper.config.defaults.name : "") || ""
+		),
+		host: String(args.host || ""),
+		port: parseInt(args.port, 10),
 		tls: !!args.tls,
-		password: args.password,
-		username: args.username || nick.replace(/[^a-zA-Z0-9]/g, ""),
-		realname: args.realname || "The Lounge User",
-		commands: args.commands,
-		ip: args.ip,
-		hostname: args.hostname,
+		userDisconnected: !!args.userDisconnected,
+		rejectUnauthorized: !!args.rejectUnauthorized,
+		password: String(args.password || ""),
+		nick: String(args.nick || ""),
+		username: String(args.username || ""),
+		realname: String(args.realname || ""),
+		sasl: String(args.sasl || ""),
+		saslAccount: String(args.saslAccount || ""),
+		saslPassword: String(args.saslPassword || ""),
+		commands: args.commands || [],
 		channels: channels,
+		ignoreList: args.ignoreList ? args.ignoreList : [],
 	});
-	network.setNick(nick);
+
+	// Set network lobby channel id
+	network.channels[0].id = lobbyChannelId;
 
 	client.networks.push(network);
 	client.emit("network", {
-		networks: [network]
+		networks: [network.getFilteredClone(this.lastActiveChannel, -1)],
 	});
 
-	if (config.lockNetwork) {
-		// This check is needed to prevent invalid user configurations
-		if (args.host && args.host.length > 0 && args.host !== config.defaults.host) {
-			network.channels[0].pushMessage(client, new Msg({
-				type: Msg.Type.ERROR,
-				text: "Hostname you specified is not allowed."
-			}), true);
-			return;
-		}
-
-		network.host = config.defaults.host;
-		network.port = config.defaults.port;
-		network.tls = config.defaults.tls;
-	}
-
-	if (network.host.length === 0) {
-		network.channels[0].pushMessage(client, new Msg({
-			type: Msg.Type.ERROR,
-			text: "You must specify a hostname to connect."
-		}), true);
+	if (!network.validate(client)) {
 		return;
 	}
 
-	if (config.webirc && network.host in config.webirc) {
-		if (!args.hostname) {
-			args.hostname = args.ip;
-		}
-
-		if (args.ip) {
-			if (config.webirc[network.host] instanceof Function) {
-				webirc = config.webirc[network.host](client, args);
-			} else {
-				webirc = {
-					password: config.webirc[network.host],
-					username: pkg.name,
-					address: args.ip,
-					hostname: args.hostname
-				};
-			}
-		} else {
-			log.warn("Cannot find a valid WEBIRC configuration for " + nick
-				+ "!" + network.username + "@" + network.host);
-		}
-	}
-
-	network.irc = new ircFramework.Client({
-		version: pkg.name + " " + Helper.getVersion() + " -- " + pkg.homepage,
-		host: network.host,
-		port: network.port,
-		nick: nick,
-		username: config.useHexIp ? Helper.ip2hex(args.ip) : network.username,
-		gecos: network.realname,
-		password: network.password,
-		tls: network.tls,
-		localAddress: config.bind,
-		rejectUnauthorized: false,
-		enable_echomessage: true,
-		auto_reconnect: true,
-		auto_reconnect_wait: 10000 + Math.floor(Math.random() * 1000), // If multiple users are connected to the same network, randomize their reconnections a little
-		auto_reconnect_max_retries: 360, // At least one hour (plus timeouts) worth of reconnections
-		webirc: webirc,
-	});
-
-	network.irc.requestCap([
-		"znc.in/self-message", // Legacy echo-message for ZNc
-	]);
+	network.createIrcFramework(client);
 
 	events.forEach((plugin) => {
-		var path = "./plugins/irc-events/" + plugin;
-		require(path).apply(client, [
-			network.irc,
-			network
-		]);
+		require(`./plugins/irc-events/${plugin}`).apply(client, [network.irc, network]);
 	});
 
-	network.irc.connect();
+	if (network.userDisconnected) {
+		network.channels[0].pushMessage(
+			client,
+			new Msg({
+				text:
+					"You have manually disconnected from this network before, use the /connect command to connect again.",
+			}),
+			true
+		);
+	} else if (!isStartup) {
+		network.irc.connect();
+	}
 
-	client.save();
+	if (!isStartup) {
+		client.save();
+		channels.forEach((channel) => channel.loadMessages(client, network));
+	}
 };
 
-Client.prototype.generateToken = function(callback) {
-	crypto.randomBytes(48, (err, buf) => {
+Client.prototype.generateToken = function (callback) {
+	crypto.randomBytes(64, (err, buf) => {
 		if (err) {
 			throw err;
 		}
@@ -306,7 +296,11 @@ Client.prototype.generateToken = function(callback) {
 	});
 };
 
-Client.prototype.updateSession = function(token, ip, request) {
+Client.prototype.calculateTokenHash = function (token) {
+	return crypto.createHash("sha512").update(token).digest("hex");
+};
+
+Client.prototype.updateSession = function (token, ip, request) {
 	const client = this;
 	const agent = UAParser(request.headers["user-agent"] || "");
 	let friendlyAgent = "";
@@ -318,44 +312,50 @@ Client.prototype.updateSession = function(token, ip, request) {
 	}
 
 	if (agent.os.name) {
-		friendlyAgent += ` on ${agent.os.name} ${agent.os.version}`;
+		friendlyAgent += ` on ${agent.os.name}`;
+
+		if (agent.os.version) {
+			friendlyAgent += ` ${agent.os.version}`;
+		}
 	}
 
-	client.config.sessions[token] = _.assign({
+	client.config.sessions[token] = _.assign(client.config.sessions[token], {
 		lastUse: Date.now(),
 		ip: ip,
 		agent: friendlyAgent,
-	}, client.config.sessions[token]);
+	});
+
+	client.save();
 };
 
-Client.prototype.setPassword = function(hash, callback) {
-	var client = this;
+Client.prototype.setPassword = function (hash, callback) {
+	const client = this;
 
-	client.manager.updateUser(client.name, {
-		password: hash
-	}, function(err) {
+	const oldHash = client.config.password;
+	client.config.password = hash;
+	client.manager.saveUser(client, function (err) {
 		if (err) {
-			log.error("Failed to update password of", client.name, err);
+			// If user file fails to write, reset it back
+			client.config.password = oldHash;
 			return callback(false);
 		}
 
-		client.config.password = hash;
 		return callback(true);
 	});
 };
 
-Client.prototype.input = function(data) {
-	var client = this;
+Client.prototype.input = function (data) {
+	const client = this;
 	data.text.split("\n").forEach((line) => {
 		data.text = line;
 		client.inputLine(data);
 	});
 };
 
-Client.prototype.inputLine = function(data) {
-	var client = this;
-	var text = data.text;
-	var target = client.find(data.target);
+Client.prototype.inputLine = function (data) {
+	const client = this;
+	const target = client.find(data.target);
+
 	if (!target) {
 		return;
 	}
@@ -364,13 +364,18 @@ Client.prototype.inputLine = function(data) {
 	// so that reloading the page will open this channel
 	this.lastActiveChannel = target.chan.id;
 
+	let text = data.text;
+
 	// This is either a normal message or a command escaped with a leading '/'
 	if (text.charAt(0) !== "/" || text.charAt(1) === "/") {
 		if (target.chan.type === Chan.Type.LOBBY) {
-			target.chan.pushMessage(this, new Msg({
-				type: Msg.Type.ERROR,
-				text: "Messages can not be sent to lobbies."
-			}));
+			target.chan.pushMessage(
+				this,
+				new Msg({
+					type: Msg.Type.ERROR,
+					text: "Messages can not be sent to lobbies.",
+				})
+			);
 			return;
 		}
 
@@ -379,31 +384,130 @@ Client.prototype.inputLine = function(data) {
 		text = text.substr(1);
 	}
 
-	var args = text.split(" ");
-	var cmd = args.shift().toLowerCase();
+	const args = text.split(" ");
+	const cmd = args.shift().toLowerCase();
 
-	var irc = target.network.irc;
-	var connected = irc && irc.connection && irc.connection.connected;
+	const irc = target.network.irc;
+	let connected = irc && irc.connection && irc.connection.connected;
 
-	if (cmd in inputs) {
-		var plugin = inputs[cmd];
-		if (connected || plugin.allowDisconnected) {
+	if (inputs.userInputs.has(cmd)) {
+		const plugin = inputs.userInputs.get(cmd);
+
+		if (typeof plugin.input === "function" && (connected || plugin.allowDisconnected)) {
 			connected = true;
 			plugin.input.apply(client, [target.network, target.chan, cmd, args]);
+		}
+	} else if (inputs.pluginCommands.has(cmd)) {
+		const plugin = inputs.pluginCommands.get(cmd);
+
+		if (typeof plugin.input === "function" && (connected || plugin.allowDisconnected)) {
+			connected = true;
+			plugin.input(
+				new PublicClient(client, plugin.packageInfo),
+				{network: target.network, chan: target.chan},
+				cmd,
+				args
+			);
 		}
 	} else if (connected) {
 		irc.raw(text);
 	}
 
 	if (!connected) {
-		target.chan.pushMessage(this, new Msg({
-			type: Msg.Type.ERROR,
-			text: "You are not connected to the IRC network, unable to send your command."
-		}));
+		target.chan.pushMessage(
+			this,
+			new Msg({
+				type: Msg.Type.ERROR,
+				text: "You are not connected to the IRC network, unable to send your command.",
+			})
+		);
 	}
 };
 
-Client.prototype.more = function(data) {
+Client.prototype.compileCustomHighlights = function () {
+	this.highlightRegex = compileHighlightRegex(this.config.clientSettings.highlights);
+	this.highlightExceptionRegex = compileHighlightRegex(
+		this.config.clientSettings.highlightExceptions
+	);
+};
+
+function compileHighlightRegex(customHighlightString) {
+	if (typeof customHighlightString !== "string") {
+		return null;
+	}
+
+	// Ensure we don't have empty strings in the list of highlights
+	const highlightsTokens = customHighlightString
+		.split(",")
+		.map((highlight) => escapeRegExp(highlight.trim()))
+		.filter((highlight) => highlight.length > 0);
+
+	if (highlightsTokens.length === 0) {
+		return null;
+	}
+
+	return new RegExp(
+		`(?:^|[ .,+!?|/:<>(){}'"@&~-])(?:${highlightsTokens.join("|")})(?:$|[ .,+!?|/:<>(){}'"-])`,
+		"i"
+	);
+}
+
+Client.prototype.more = function (data) {
+	const client = this;
+	const target = client.find(data.target);
+
+	if (!target) {
+		return null;
+	}
+
+	const chan = target.chan;
+	let messages = [];
+	let index = 0;
+
+	// If client requests -1, send last 100 messages
+	if (data.lastId < 0) {
+		index = chan.messages.length;
+	} else {
+		index = chan.messages.findIndex((val) => val.id === data.lastId);
+	}
+
+	// If requested id is not found, an empty array will be sent
+	if (index > 0) {
+		let startIndex = index;
+
+		if (data.condensed) {
+			// Limit to 1000 messages (that's 10x normal limit)
+			const indexToStop = Math.max(0, index - 1000);
+			let realMessagesLeft = 100;
+
+			for (let i = index - 1; i >= indexToStop; i--) {
+				startIndex--;
+
+				// Do not count condensed messages towards the 100 messages
+				if (constants.condensedTypes.has(chan.messages[i].type)) {
+					continue;
+				}
+
+				// Count up actual 100 visible messages
+				if (--realMessagesLeft === 0) {
+					break;
+				}
+			}
+		} else {
+			startIndex = Math.max(0, index - 100);
+		}
+
+		messages = chan.messages.slice(startIndex, index);
+	}
+
+	return {
+		chan: chan.id,
+		messages: messages,
+		totalMessages: chan.messages.length,
+	};
+};
+
+Client.prototype.clearHistory = function (data) {
 	const client = this;
 	const target = client.find(data.target);
 
@@ -411,41 +515,56 @@ Client.prototype.more = function(data) {
 		return;
 	}
 
-	const chan = target.chan;
-	const index = chan.messages.findIndex((val) => val.id === data.lastId);
+	target.chan.messages = [];
+	target.chan.unread = 0;
+	target.chan.highlight = 0;
+	target.chan.firstUnread = 0;
 
-	// If we don't find the requested message, send an empty array
-	const messages = index > 0 ? chan.messages.slice(Math.max(0, index - 100), index) : [];
-
-	client.emit("more", {
-		chan: chan.id,
-		messages: messages
+	client.emit("history:clear", {
+		target: target.chan.id,
 	});
+
+	if (!target.chan.isLoggable()) {
+		return;
+	}
+
+	for (const messageStorage of this.messageStorage) {
+		messageStorage.deleteChannel(target.network, target.chan);
+	}
 };
 
-Client.prototype.open = function(socketId, target) {
+Client.prototype.open = function (socketId, target) {
+	// Due to how socket.io works internally, normal events may arrive later than
+	// the disconnect event, and because we can't control this timing precisely,
+	// process this event normally even if there is no attached client anymore.
+	const attachedClient = this.attachedClients[socketId] || {};
+
 	// Opening a window like settings
 	if (target === null) {
-		this.attachedClients[socketId].openChannel = -1;
+		attachedClient.openChannel = -1;
 		return;
 	}
 
 	target = this.find(target);
+
 	if (!target) {
 		return;
 	}
 
-	target.chan.firstUnread = 0;
 	target.chan.unread = 0;
-	target.chan.highlight = false;
+	target.chan.highlight = 0;
 
-	this.attachedClients[socketId].openChannel = target.chan.id;
+	if (target.chan.messages.length > 0) {
+		target.chan.firstUnread = target.chan.messages[target.chan.messages.length - 1].id;
+	}
+
+	attachedClient.openChannel = target.chan.id;
 	this.lastActiveChannel = target.chan.id;
 
 	this.emit("open", target.chan.id);
 };
 
-Client.prototype.sort = function(data) {
+Client.prototype.sort = function (data) {
 	const order = data.order;
 
 	if (!_.isArray(order)) {
@@ -453,46 +572,66 @@ Client.prototype.sort = function(data) {
 	}
 
 	switch (data.type) {
-	case "networks":
-		this.networks.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+		case "networks":
+			this.networks.sort((a, b) => order.indexOf(a.uuid) - order.indexOf(b.uuid));
 
-		// Sync order to connected clients
-		this.emit("sync_sort", {order: this.networks.map((obj) => obj.id), type: data.type, target: data.target});
+			// Sync order to connected clients
+			this.emit("sync_sort", {
+				order: this.networks.map((obj) => obj.uuid),
+				type: data.type,
+			});
 
-		break;
+			break;
 
-	case "channels":
-		var network = _.find(this.networks, {id: data.target});
-		if (!network) {
-			return;
+		case "channels": {
+			const network = _.find(this.networks, {uuid: data.target});
+
+			if (!network) {
+				return;
+			}
+
+			network.channels.sort((a, b) => {
+				// Always sort lobby to the top regardless of what the client has sent
+				// Because there's a lot of code that presumes channels[0] is the lobby
+				if (a.type === Chan.Type.LOBBY) {
+					return -1;
+				} else if (b.type === Chan.Type.LOBBY) {
+					return 1;
+				}
+
+				return order.indexOf(a.id) - order.indexOf(b.id);
+			});
+
+			// Sync order to connected clients
+			this.emit("sync_sort", {
+				order: network.channels.map((obj) => obj.id),
+				type: data.type,
+				target: network.uuid,
+			});
+
+			break;
 		}
-
-		network.channels.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-
-		// Sync order to connected clients
-		this.emit("sync_sort", {order: network.channels.map((obj) => obj.id), type: data.type, target: data.target});
-
-		break;
 	}
 
 	this.save();
 };
 
-Client.prototype.names = function(data) {
-	var client = this;
-	var target = client.find(data.target);
+Client.prototype.names = function (data) {
+	const client = this;
+	const target = client.find(data.target);
+
 	if (!target) {
 		return;
 	}
 
 	client.emit("names", {
 		id: target.chan.id,
-		users: target.chan.users
+		users: target.chan.getSortedUsers(target.network.irc),
 	});
 };
 
-Client.prototype.quit = function(signOut) {
-	const sockets = this.sockets.sockets;
+Client.prototype.quit = function (signOut) {
+	const sockets = this.manager.sockets.sockets;
 	const room = sockets.adapter.rooms[this.id];
 
 	if (room && room.sockets) {
@@ -510,75 +649,57 @@ Client.prototype.quit = function(signOut) {
 	}
 
 	this.networks.forEach((network) => {
-		if (network.irc) {
-			network.irc.quit(Helper.config.leaveMessage);
-		}
-
+		network.quit(Helper.config.leaveMessage);
 		network.destroy();
 	});
+
+	for (const messageStorage of this.messageStorage) {
+		messageStorage.close();
+	}
 };
 
-Client.prototype.clientAttach = function(socketId, token) {
-	var client = this;
-	var save = false;
+Client.prototype.clientAttach = function (socketId, token) {
+	const client = this;
 
 	if (client.awayMessage && _.size(client.attachedClients) === 0) {
-		client.networks.forEach(function(network) {
+		client.networks.forEach(function (network) {
 			// Only remove away on client attachment if
 			// there is no away message on this network
-			if (!network.awayMessage) {
+			if (network.irc && !network.awayMessage) {
 				network.irc.raw("AWAY");
 			}
 		});
 	}
 
-	client.attachedClients[socketId] = {
-		token: token,
-		openChannel: client.lastActiveChannel
-	};
-
-	// Update old networks to store ip and hostmask
-	client.networks.forEach((network) => {
-		if (!network.ip) {
-			save = true;
-			network.ip = (client.config && client.config.ip) || client.ip;
-		}
-
-		if (!network.hostname) {
-			var hostmask = (client.config && client.config.hostname) || client.hostname;
-
-			if (hostmask) {
-				save = true;
-				network.hostmask = hostmask;
-			}
-		}
-	});
-
-	if (save) {
-		client.save();
-	}
+	const openChannel = client.lastActiveChannel;
+	client.attachedClients[socketId] = {token, openChannel};
 };
 
-Client.prototype.clientDetach = function(socketId) {
+Client.prototype.clientDetach = function (socketId) {
 	const client = this;
 
 	delete this.attachedClients[socketId];
 
 	if (client.awayMessage && _.size(client.attachedClients) === 0) {
-		client.networks.forEach(function(network) {
+		client.networks.forEach(function (network) {
 			// Only set away on client deattachment if
 			// there is no away message on this network
-			if (!network.awayMessage) {
+			if (network.irc && !network.awayMessage) {
 				network.irc.raw("AWAY", client.awayMessage);
 			}
 		});
 	}
 };
 
-Client.prototype.registerPushSubscription = function(session, subscription, noSave) {
-	if (!_.isPlainObject(subscription) || !_.isPlainObject(subscription.keys)
-	|| typeof subscription.endpoint !== "string" || !/^https?:\/\//.test(subscription.endpoint)
-	|| typeof subscription.keys.p256dh !== "string" || typeof subscription.keys.auth !== "string") {
+Client.prototype.registerPushSubscription = function (session, subscription, noSave) {
+	if (
+		!_.isPlainObject(subscription) ||
+		!_.isPlainObject(subscription.keys) ||
+		typeof subscription.endpoint !== "string" ||
+		!/^https?:\/\//.test(subscription.endpoint) ||
+		typeof subscription.keys.p256dh !== "string" ||
+		typeof subscription.keys.auth !== "string"
+	) {
 		session.pushSubscription = null;
 		return;
 	}
@@ -587,35 +708,33 @@ Client.prototype.registerPushSubscription = function(session, subscription, noSa
 		endpoint: subscription.endpoint,
 		keys: {
 			p256dh: subscription.keys.p256dh,
-			auth: subscription.keys.auth
-		}
+			auth: subscription.keys.auth,
+		},
 	};
 
 	session.pushSubscription = data;
 
 	if (!noSave) {
-		this.manager.updateUser(this.name, {
-			sessions: this.config.sessions
-		});
+		this.save();
 	}
 
 	return data;
 };
 
-Client.prototype.unregisterPushSubscription = function(token) {
+Client.prototype.unregisterPushSubscription = function (token) {
 	this.config.sessions[token].pushSubscription = null;
-	this.manager.updateUser(this.name, {
-		sessions: this.config.sessions
-	});
+	this.save();
 };
 
-Client.prototype.save = _.debounce(function SaveClient() {
-	if (Helper.config.public) {
-		return;
-	}
+Client.prototype.save = _.debounce(
+	function SaveClient() {
+		if (Helper.config.public) {
+			return;
+		}
 
-	const client = this;
-	const json = {};
-	json.networks = this.networks.map((n) => n.export());
-	client.manager.updateUser(client.name, json);
-}, 1000, {maxWait: 10000});
+		const client = this;
+		client.manager.saveUser(client);
+	},
+	5000,
+	{maxWait: 20000}
+);

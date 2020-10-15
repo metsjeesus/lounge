@@ -1,38 +1,35 @@
 "use strict";
 
-var colors = require("colors/safe");
-var moment = require("moment");
+const colors = require("chalk");
 const read = require("read");
-var Helper = require("./helper");
 
-function timestamp(type, messageArgs) {
-	var format = Helper.config.logs.format || "YYYY-MM-DD HH:mm:ss";
-	var tz = Helper.config.logs.timezone || "UTC+00:00";
+function timestamp() {
+	const datetime = new Date().toISOString().split(".")[0].replace("T", " ");
 
-	var time = moment().utcOffset(tz).format(format);
-
-	Array.prototype.unshift.call(messageArgs, colors.dim(time), type);
-
-	return messageArgs;
+	return colors.dim(datetime);
 }
 
-exports.error = function() {
-	console.error.apply(console, timestamp(colors.red("[ERROR]"), arguments));
-};
+module.exports = {
+	/* eslint-disable no-console */
+	error(...args) {
+		console.error(timestamp(), colors.red("[ERROR]"), ...args);
+	},
+	warn(...args) {
+		console.error(timestamp(), colors.yellow("[WARN]"), ...args);
+	},
+	info(...args) {
+		console.log(timestamp(), colors.blue("[INFO]"), ...args);
+	},
+	debug(...args) {
+		console.log(timestamp(), colors.green("[DEBUG]"), ...args);
+	},
+	raw(...args) {
+		console.log(...args);
+	},
+	/* eslint-enable no-console */
 
-exports.warn = function() {
-	console.error.apply(console, timestamp(colors.yellow("[WARN]"), arguments));
-};
-
-exports.info = function() {
-	console.log.apply(console, timestamp(colors.blue("[INFO]"), arguments));
-};
-
-exports.debug = function() {
-	console.log.apply(console, timestamp(colors.green("[DEBUG]"), arguments));
-};
-
-exports.prompt = (options, callback) => {
-	options.prompt = timestamp(colors.cyan("[PROMPT]"), [options.text]).join(" ");
-	read(options, callback);
+	prompt(options, callback) {
+		options.prompt = [timestamp(), colors.cyan("[PROMPT]"), options.text].join(" ");
+		read(options, callback);
+	},
 };

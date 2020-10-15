@@ -1,6 +1,7 @@
 "use strict";
 
 const _ = require("lodash");
+const log = require("../log");
 const fs = require("fs");
 const path = require("path");
 const WebPushAPI = require("web-push");
@@ -8,13 +9,16 @@ const Helper = require("../helper");
 
 class WebPush {
 	constructor() {
-		const vapidPath = path.join(Helper.HOME, "vapid.json");
+		const vapidPath = path.join(Helper.getHomePath(), "vapid.json");
 
 		if (fs.existsSync(vapidPath)) {
 			const data = fs.readFileSync(vapidPath, "utf-8");
 			const parsedData = JSON.parse(data);
 
-			if (typeof parsedData.publicKey === "string" && typeof parsedData.privateKey === "string") {
+			if (
+				typeof parsedData.publicKey === "string" &&
+				typeof parsedData.privateKey === "string"
+			) {
 				this.vapidKeys = {
 					publicKey: parsedData.publicKey,
 					privateKey: parsedData.privateKey,
@@ -31,42 +35,42 @@ class WebPush {
 		}
 
 		WebPushAPI.setVapidDetails(
-			"https://github.com/thelounge/lounge",
+			"https://github.com/thelounge/thelounge",
 			this.vapidKeys.publicKey,
 			this.vapidKeys.privateKey
 		);
 	}
 
 	push(client, payload, onlyToOffline) {
-		_.forOwn(client.config.sessions, (session, token) => {
-			if (session.pushSubscription) {
-				if (onlyToOffline && _.find(client.attachedClients, {token: token}) !== undefined) {
+		_.forOwn(client.config.sessions, ({pushSubscription}, token) => {
+			if (pushSubscription) {
+				if (onlyToOffline && _.find(client.attachedClients, {token}) !== undefined) {
 					return;
 				}
 
-				this.pushSingle(client, session.pushSubscription, payload);
+				this.pushSingle(client, pushSubscription, payload);
 			}
 		});
 	}
 
 	pushSingle(client, subscription, payload) {
-		WebPushAPI
-			.sendNotification(subscription, JSON.stringify(payload))
-			.catch((error) => {
-				if (error.statusCode >= 400 && error.statusCode < 500) {
-					log.warn(`WebPush subscription for ${client.name} returned an error (${error.statusCode}), removing subscription`);
+		WebPushAPI.sendNotification(subscription, JSON.stringify(payload)).catch((error) => {
+			if (error.statusCode >= 400 && error.statusCode < 500) {
+				log.warn(
+					`WebPush subscription for ${client.name} returned an error (${error.statusCode}), removing subscription`
+				);
 
-					_.forOwn(client.config.sessions, (session, token) => {
-						if (session.pushSubscription && session.pushSubscription.endpoint === subscription.endpoint) {
-							client.unregisterPushSubscription(token);
-						}
-					});
+				_.forOwn(client.config.sessions, ({pushSubscription}, token) => {
+					if (pushSubscription && pushSubscription.endpoint === subscription.endpoint) {
+						client.unregisterPushSubscription(token);
+					}
+				});
 
-					return;
-				}
+				return;
+			}
 
-				log.error(`WebPush Error (${error})`);
-			});
+			log.error(`WebPush Error (${error})`);
+		});
 	}
 }
 

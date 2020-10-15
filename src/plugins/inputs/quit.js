@@ -1,25 +1,25 @@
 "use strict";
 
-var _ = require("lodash");
-const Helper = require("../../helper");
+const _ = require("lodash");
+const ClientCertificate = require("../clientCertificate");
 
 exports.commands = ["quit"];
 exports.allowDisconnected = true;
 
-exports.input = function(network, chan, cmd, args) {
-	var client = this;
+exports.input = function (network, chan, cmd, args) {
+	const client = this;
 
 	client.networks = _.without(client.networks, network);
 	network.destroy();
 	client.save();
 	client.emit("quit", {
-		network: network.id
+		network: network.uuid,
 	});
 
-	if (network.irc) {
-		const quitMessage = args[0] ? args.join(" ") : Helper.config.leaveMessage;
-		network.irc.quit(quitMessage);
-	}
+	const quitMessage = args[0] ? args.join(" ") : null;
+	network.quit(quitMessage);
+
+	ClientCertificate.remove(network.uuid);
 
 	return true;
 };

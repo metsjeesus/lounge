@@ -2,8 +2,8 @@
 
 exports.commands = ["list"];
 
-exports.input = function(network, chan, cmd, args) {
+exports.input = function (network, chan, cmd, args) {
 	network.chanCache = [];
-	network.irc.list.apply(network.irc, args);
+	network.irc.list(...args);
 	return true;
 };

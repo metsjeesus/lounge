@@ -1,127 +1,93 @@
 "use strict";
 
-const $ = require("jquery");
-const storage = require("./localStorage");
-const socket = require("./socket");
+import socket from "./socket";
+import store from "./store";
 
-const pushNotificationsButton = $("#pushNotifications");
-let clientSubscribed = null;
-let applicationServerKey;
+export default {togglePushSubscription};
 
-module.exports.configurePushNotifications = (subscribedOnServer, key) => {
-	applicationServerKey = key;
-
-	// If client has push registration but the server knows nothing about it,
-	// this subscription is broken and client has to register again
-	if (clientSubscribed === true && subscribedOnServer === false) {
-		pushNotificationsButton.attr("disabled", true);
-
-		navigator.serviceWorker.register("service-worker.js")
-			.then((registration) => registration.pushManager.getSubscription())
-			.then((subscription) => subscription && subscription.unsubscribe())
-			.then((successful) => {
-				if (successful) {
-					alternatePushButton().removeAttr("disabled");
-				}
-			});
+socket.once("push:issubscribed", function (hasSubscriptionOnServer) {
+	if (!isAllowedServiceWorkersHost()) {
+		store.commit("pushNotificationState", "nohttps");
+		return;
 	}
-};
 
-if (isAllowedServiceWorkersHost()) {
-	$("#pushNotificationsHttps").hide();
+	if (!("serviceWorker" in navigator)) {
+		return;
+	}
 
-	if ("serviceWorker" in navigator) {
-		navigator.serviceWorker.register("service-worker.js").then((registration) => {
+	navigator.serviceWorker
+		.register("service-worker.js")
+		.then((registration) => {
+			store.commit("hasServiceWorker");
+
 			if (!registration.pushManager) {
 				return;
 			}
 
 			return registration.pushManager.getSubscription().then((subscription) => {
-				$("#pushNotificationsUnsupported").hide();
-
-				pushNotificationsButton
-					.removeAttr("disabled")
-					.on("click", onPushButton);
-
-				clientSubscribed = !!subscription;
-
-				if (clientSubscribed) {
-					alternatePushButton();
+				// If client has push registration but the server knows nothing about it,
+				// this subscription is broken and client has to register again
+				if (subscription && hasSubscriptionOnServer === false) {
+					subscription.unsubscribe().then((successful) => {
+						store.commit(
+							"pushNotificationState",
+							successful ? "supported" : "unsupported"
+						);
+					});
+				} else {
+					store.commit(
+						"pushNotificationState",
+						subscription ? "subscribed" : "supported"
+					);
 				}
 			});
-		}).catch((err) => {
-			$("#pushNotificationsUnsupported span").text(err);
+		})
+		.catch((err) => {
+			store.commit("pushNotificationState", "unsupported");
+			console.error(err); // eslint-disable-line no-console
 		});
-	}
-}
+});
 
-function onPushButton() {
-	pushNotificationsButton.attr("disabled", true);
+function togglePushSubscription() {
+	store.commit("pushNotificationState", "loading");
 
-	navigator.serviceWorker.register("service-worker.js").then((registration) => {
-		registration.pushManager.getSubscription().then((existingSubscription) => {
-			if (existingSubscription) {
-				socket.emit("push:unregister");
+	navigator.serviceWorker.ready
+		.then((registration) =>
+			registration.pushManager.getSubscription().then((existingSubscription) => {
+				if (existingSubscription) {
+					socket.emit("push:unregister");
 
-				return existingSubscription.unsubscribe();
-			}
+					return existingSubscription.unsubscribe().then((successful) => {
+						store.commit(
+							"pushNotificationState",
+							successful ? "supported" : "unsupported"
+						);
+					});
+				}
 
-			return registration.pushManager.subscribe({
-				applicationServerKey: urlBase64ToUint8Array(applicationServerKey),
-				userVisibleOnly: true
-			}).then((subscription) => {
-				const rawKey = subscription.getKey ? subscription.getKey("p256dh") : "";
-				const key = rawKey ? window.btoa(String.fromCharCode.apply(null, new Uint8Array(rawKey))) : "";
-				const rawAuthSecret = subscription.getKey ? subscription.getKey("auth") : "";
-				const authSecret = rawAuthSecret ? window.btoa(String.fromCharCode.apply(null, new Uint8Array(rawAuthSecret))) : "";
-
-				socket.emit("push:register", {
-					token: storage.get("token"),
-					endpoint: subscription.endpoint,
-					keys: {
-						p256dh: key,
-						auth: authSecret
-					}
-				});
-
-				return true;
-			});
-		}).then((successful) => {
-			if (successful) {
-				alternatePushButton().removeAttr("disabled");
-			}
+				return registration.pushManager
+					.subscribe({
+						applicationServerKey: store.state.serverConfiguration.applicationServerKey,
+						userVisibleOnly: true,
+					})
+					.then((subscription) => {
+						socket.emit("push:register", subscription.toJSON());
+						store.commit("pushNotificationState", "subscribed");
+						store.commit("refreshDesktopNotificationState");
+					});
+			})
+		)
+		.catch((err) => {
+			store.commit("pushNotificationState", "unsupported");
+			store.commit("refreshDesktopNotificationState");
+			console.error(err); // eslint-disable-line no-console
 		});
-	}).catch((err) => {
-		$("#pushNotificationsUnsupported span").text(err).show();
-	});
-
-	return false;
-}
-
-function alternatePushButton() {
-	const text = pushNotificationsButton.text();
-
-	return pushNotificationsButton
-		.text(pushNotificationsButton.data("text-alternate"))
-		.data("text-alternate", text);
-}
-
-function urlBase64ToUint8Array(base64String) {
-	const padding = "=".repeat((4 - base64String.length % 4) % 4);
-	const base64 = (base64String + padding)
-		.replace(/-/g, "+")
-		.replace(/_/g, "/");
-
-	const rawData = window.atob(base64);
-	const outputArray = new Uint8Array(rawData.length);
-
-	for (let i = 0; i < rawData.length; ++i) {
-		outputArray[i] = rawData.charCodeAt(i);
-	}
-
-	return outputArray;
 }
 
 function isAllowedServiceWorkersHost() {
-	return location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+	return (
+		location.protocol === "https:" ||
+		location.hostname === "localhost" ||
+		location.hostname === "127.0.0.1"
+	);
 }

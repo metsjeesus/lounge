@@ -19,81 +19,21 @@ const colorCodeMap = [
 	["15", "Light Grey"],
 ];
 
-const commands = [
-	"/away",
-	"/back",
-	"/ban",
-	"/banlist",
-	"/close",
-	"/collapse",
-	"/connect",
-	"/ctcp",
-	"/cycle",
-	"/deop",
-	"/devoice",
-	"/disconnect",
-	"/expand",
-	"/invite",
-	"/join",
-	"/kick",
-	"/leave",
-	"/me",
-	"/mode",
-	"/msg",
-	"/nick",
-	"/notice",
-	"/op",
-	"/part",
-	"/query",
-	"/quit",
-	"/raw",
-	"/rejoin",
-	"/say",
-	"/send",
-	"/server",
-	"/slap",
-	"/topic",
-	"/unban",
-	"/voice",
-	"/whois"
-];
-
-const actionTypes = [
-	"ban_list",
-	"invite",
-	"join",
-	"mode",
-	"kick",
-	"nick",
-	"part",
-	"quit",
-	"topic",
-	"topic_set_by",
-	"action",
-	"whois",
-	"ctcp",
-	"channel_list",
-];
-
-const condensedTypes = [
-	"join",
-	"part",
-	"quit",
-	"nick",
-	"kick",
-	"mode",
-];
+const condensedTypes = new Set(["chghost", "join", "part", "quit", "nick", "kick", "mode"]);
 
 const timeFormats = {
 	msgDefault: "HH:mm",
-	msgWithSeconds: "HH:mm:ss"
+	msgWithSeconds: "HH:mm:ss",
+	msg12h: "hh:mm A",
+	msg12hWithSeconds: "hh:mm:ss A",
 };
 
+// This file is required by server, can't use es6 export
 module.exports = {
-	colorCodeMap: colorCodeMap,
-	commands: commands,
-	condensedTypes: condensedTypes,
-	condensedTypesQuery: "." + condensedTypes.join(", ."),
-	actionTypes: actionTypes,
-	timeFormats: timeFormats
+	colorCodeMap,
+	commands: [],
+	condensedTypes,
+	timeFormats,
+	// Same value as media query in CSS that forces sidebars to become overlays
+	mobileViewportPixels: 768,
 };

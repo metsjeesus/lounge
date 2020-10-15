@@ -1,11 +1,13 @@
 "use strict";
 
-const Helper = require("../../helper");
-
 exports.commands = ["disconnect"];
+exports.allowDisconnected = true;
 
-exports.input = function(network, chan, cmd, args) {
-	var quitMessage = args[0] ? args.join(" ") : Helper.config.leaveMessage;
+exports.input = function (network, chan, cmd, args) {
+	const quitMessage = args[0] ? args.join(" ") : null;
 
-	network.irc.quit(quitMessage);
+	network.quit(quitMessage);
+	network.userDisconnected = true;
+
+	this.save();
 };

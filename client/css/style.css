@@ -1,76 +1,127 @@
-@font-face {
-	font-family: "Lato";
-	font-weight: 400;
-	font-style: normal;
-	src:
-		local("Lato Regular"),
-		local("Lato-regular"),
-		url("fonts/Lato-regular/Lato-regular.woff2") format("woff2"),
-		url("fonts/Lato-regular/Lato-regular.woff") format("woff");
+@import "../../node_modules/normalize.css/normalize.css";
+@import "fontawesome.css";
+@import "../../node_modules/primer-tooltips/build/build.css";
+
+:root {
+	/* Main text color */
+	--body-color: #222;
+
+	/* Secondary text color, dimmed. Make sure to keep contrast WCAG 2.0 AA compliant on var(--window-bg-color) */
+	--body-color-muted: #767676;
+
+	/* Background color of the whole page */
+	--body-bg-color: #415364;
+
+	/* Main button color. Applies to border, text, and background on hover */
+	--button-color: #84ce88;
+	--button-text-color-hover: #fff;
+
+	/* Color for sidebar overlay and other things that dim the viewport when something else is on top */
+	--overlay-bg-color: rgba(0, 0, 0, 0.5);
+
+	/* Links and link-looking buttons */
+	--link-color: #50a656;
+
+	/* Background color of the main window */
+	--window-bg-color: #fff;
+
+	/* Text color for <h2> and <h3> headings in windows */
+	--window-heading-color: #6c797a;
+
+	/* Color of the date marker, text and separator */
+	--date-marker-color: rgba(0, 107, 59, 0.5);
+
+	/* Color of the unread message marker, text and separator */
+	--unread-marker-color: rgba(231, 76, 60, 0.5);
+
+	/* Background and left-border color of highlight messages */
+	--highlight-bg-color: #efe8dc;
+	--highlight-border-color: #b08c4f;
+
+	/* Color of the progress bar that appears as a file is being uploaded to the server. Defaults to button color */
+	--upload-progressbar-color: var(--button-color);
 }
 
-@font-face {
-	font-family: "Lato";
-	font-weight: 700;
-	font-style: normal;
-	src:
-		local("Lato Bold"),
-		local("Lato-700"),
-		url("fonts/Lato-700/Lato-700.woff2") format("woff2"),
-		url("fonts/Lato-700/Lato-700.woff") format("woff");
+::placeholder {
+	color: rgba(0, 0, 0, 0.35);
+	opacity: 1; /* fix opacity in Firefox */
 }
 
-@font-face {
-	font-family: "FontAwesome";
-	font-weight: normal;
-	font-style: normal;
-	src:
-		url("../fonts/fontawesome-webfont.woff2?v=4.7.0") format("woff2"),
-		url("../fonts/fontawesome-webfont.woff?v=4.7.0") format("woff");
+html {
+	box-sizing: border-box;
+	-webkit-tap-highlight-color: transparent; /* remove tap highlight on touch devices */
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: inherit;
+}
+
+input,
+button,
+select,
+textarea {
+	font: inherit;
+	color: inherit;
+}
+
+img {
+	vertical-align: middle;
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	border: 0;
+}
+
+abbr[title] {
+	cursor: help;
 }
 
 html,
 body {
 	height: 100%;
+	overscroll-behavior: none; /* prevent overscroll navigation actions */
 }
 
 body {
-	background: #455164;
-	color: #222;
-	font: 16px Lato, sans-serif;
+	background: var(--body-bg-color);
+	color: var(--body-color);
+	font: 16px -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 	margin: 0;
-	-webkit-user-select: none;
-	-moz-user-select: none;
-	-ms-user-select: none;
 	user-select: none;
 	cursor: default;
+	touch-action: none;
 
 	/**
 	  * Disable pull-to-refresh on mobile that conflicts with scrolling the message list.
 	  * See http://stackoverflow.com/a/29313685/1935861
 	  */
-	overflow-y: hidden;
+	overflow: hidden; /* iOS Safari requires overflow rather than overflow-y */
 }
 
-a {
-	transition: opacity 0.2s;
+a,
+a:hover,
+a:focus {
+	color: var(--link-color);
+	text-decoration: none;
 }
 
 a:hover {
-	text-decoration: none;
-	opacity: 0.8;
+	text-decoration: underline;
 }
 
-/**
- * From Normalize. See https://github.com/thelounge/lounge/pull/1217
- * 1. Remove the bottom border in Chrome 57- and Firefox 39-.
- * 2. Add the correct text decoration in Chrome, Edge, IE, Opera, and Safari.
- */
-
-abbr[title] {
-	border-bottom: none; /* 1 */
-	text-decoration: underline; /* 2 */
-	text-decoration: underline dotted; /* 2 */
+a:focus {
+	outline: thin dotted;
+	outline: 5px auto -webkit-focus-ring-color;
+	outline-offset: -2px;
 }
 
 h1,
@@ -81,53 +132,71 @@ h3 {
 	margin: 0;
 }
 
-h1.title {
-	margin-bottom: 10px;
-}
-
-input {
-	outline: 0;
-}
-
 button {
 	border: none;
 	background: none;
 	margin: 0;
 	outline: none;
 	padding: 0;
+	user-select: inherit;
+	cursor: pointer;
 }
 
 code,
-kbd {
+pre,
+#chat .msg[data-type="monospace_block"] .text,
+.irc-monospace,
+textarea#user-specified-css-input {
 	font-family: Consolas, Menlo, Monaco, "Lucida Console", "DejaVu Sans Mono", "Courier New", monospace;
 }
 
-code {
-	font-size: 12px;
+code,
+.irc-monospace {
+	font-size: 13px;
 	padding: 2px 4px;
 	color: #e74c3c;
 	background-color: #f9f2f4;
 	border-radius: 2px;
 }
 
+pre {
+	display: block;
+	padding: 9.5px;
+	margin: 0 0 10px;
+	font-size: 13px;
+	line-height: 1.42857143;
+	color: #333;
+	word-break: break-all;
+	word-wrap: break-word;
+	background-color: #f5f5f5;
+	border-radius: 4px;
+}
+
 kbd {
 	display: inline-block;
-	font-size: 11px;
-	line-height: 10px;
-	padding: 3px 5px;
-	color: #555;
-	vertical-align: middle;
-	background-color: #fcfcfc;
-	border: solid 1px #ccc;
-	border-bottom-color: #bbb;
-	border-radius: 3px;
-	box-shadow: inset 0 -1px 0 #bbb;
+	font-family: inherit;
+	line-height: 1em;
+	min-width: 28px; /* Ensure 1-char keys have the same width */
+	margin: 0 1px;
+	padding: 4px 6px;
+	color: #444;
+	text-align: center;
+	text-shadow: 0 1px 0 #fff;
+	background-color: white;
+	background-image: linear-gradient(180deg, rgba(0, 0, 0, 0.05), transparent);
+	border: 1px solid #bbb;
+	border-radius: 4px;
+	box-shadow: 0 2px 0 #bbb, inset 0 1px 1px #fff, inset 0 -1px 3px #ccc;
+}
+
+p {
+	margin: 0 0 10px;
 }
 
 .btn {
-	border: 2px solid #84ce88;
+	border: 2px solid var(--button-color);
 	border-radius: 3px;
-	color: #84ce88;
+	color: var(--button-color);
 	display: inline-block;
 	font-size: 12px;
 	font-weight: bold;
@@ -135,20 +204,31 @@ kbd {
 	margin-bottom: 10px;
 	padding: 9px 17px;
 	text-transform: uppercase;
-	transition: background 0.2s, border-color 0.2s, color 0.2s;
+	transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
 	word-spacing: 3px;
 	cursor: pointer; /* This is useful for `<button>` elements */
 }
 
+.btn-small {
+	padding: 5px 13px;
+}
+
 .btn:disabled,
-.btn:hover {
-	background: #84ce88;
-	color: #fff;
+.btn:hover,
+.btn:focus {
+	background: var(--button-color);
+	color: var(--button-text-color-hover);
 	opacity: 1;
 }
 
+.input:focus,
+.btn:active,
+.btn:focus {
+	outline: 0;
+	box-shadow: 0 0 0 3px rgba(132, 206, 136, 0.5);
+}
+
 .btn:active {
-	box-shadow: none;
 	opacity: 0.8;
 }
 
@@ -156,63 +236,102 @@ kbd {
 	opacity: 0.6;
 }
 
+.btn-sm {
+	padding: 4px 8px;
+	border-width: 1px;
+	letter-spacing: 0;
+	word-spacing: 0;
+	text-transform: none;
+}
+
 .container {
-	margin: 80px auto;
-	max-width: 480px;
+	padding: 0 15px;
+	margin-bottom: 20px;
+	width: 480px;
+	align-self: center;
+	touch-action: pan-y;
 }
 
-::-moz-placeholder {
-	color: rgba(0, 0, 0, 0.35);
-	opacity: 1;
-}
-
-::-webkit-input-placeholder {
-	color: rgba(0, 0, 0, 0.35);
-}
-
-:-ms-input-placeholder {
-	color: rgba(0, 0, 0, 0.35) !important;
-}
-
-#help,
-#windows .header .title,
-#windows .header .topic,
+#js-copy-hack,
+#loading pre,
+#help .container,
+#changelog .container,
+.header .title,
+.header .topic,
 #chat .messages {
-	-webkit-user-select: text;
-	-moz-user-select: text;
-	-ms-user-select: text;
 	user-select: text;
 	cursor: text;
+}
+
+#js-copy-hack {
+	position: absolute;
+	left: -999999px;
+}
+
+#chat #js-copy-hack .msg[data-type="condensed"]:not(.closed) .msg,
+#chat #js-copy-hack > .msg {
+	display: block;
+}
+
+.only-copy {
+	font-size: 0;
+	opacity: 0;
+	width: 0;
 }
 
 /* Icons */
 
 #viewport .lt::before,
 #viewport .rt::before,
+#chat button.mentions::before,
 #chat button.menu::before,
-#sidebar .chan::before,
-#chat .title::before,
+.channel-list-item::before,
 #footer .icon,
 #chat .count::before,
+#connect .extra-help,
 #settings .extra-help,
 #settings #play::before,
+#form #upload::before,
 #form #submit::before,
-#chat .invite .from::before,
-#chat .join .from::before,
-#chat .kick .from::before,
-#chat .part .from::before,
-#chat .quit .from::before,
-#chat .topic .from::before,
-#chat .mode .from::before,
-#chat .ctcp .from::before,
-#chat .whois .from::before,
-#chat .nick .from::before,
-#chat .action .from::before,
+#chat .msg[data-type="away"] .from::before,
+#chat .msg[data-type="back"] .from::before,
+#chat .msg[data-type="invite"] .from::before,
+#chat .msg[data-type="join"] .from::before,
+#chat .msg[data-type="kick"] .from::before,
+#chat .msg[data-type="part"] .from::before,
+#chat .msg[data-type="quit"] .from::before,
+#chat .msg[data-type="topic"] .from::before,
+#chat .msg[data-type="mode_channel"] .from::before,
+#chat .msg[data-type="mode"] .from::before,
+#chat .msg[data-command="motd"] .from::before,
+#chat .msg[data-command="help"] .from::before,
+#chat .msg[data-command="info"] .from::before,
+#chat .msg[data-type="ctcp"] .from::before,
+#chat .msg[data-type="ctcp_request"] .from::before,
+#chat .msg[data-type="whois"] .from::before,
+#chat .msg[data-type="nick"] .from::before,
+#chat .msg[data-type="action"] .from::before,
+#chat .msg[data-type="plugin"] .from::before,
+#chat .msg[data-type="raw"] .from::before,
+#chat .msg-statusmsg span::before,
+#chat .msg-shown-in-active span::before,
 #chat .toggle-button::after,
+#chat .toggle-content .more-caret::before,
+#chat .scroll-down-arrow::after,
+#chat .topic-container .save-topic span::before,
+#version-checker::before,
 .context-menu-item::before,
-#nick button::before,
+#help .website-link::before,
+#help .documentation-link::before,
+#help .report-issue-link::before,
 #image-viewer .previous-image-btn::before,
-#image-viewer .next-image-btn::before {
+#image-viewer .next-image-btn::before,
+#image-viewer .open-btn::before,
+.channel-list-item .not-secure-icon::before,
+.channel-list-item .not-connected-icon::before,
+.channel-list-item .parted-channel-icon::before,
+.jump-to-input::before,
+#sidebar .collapse-network-icon::before {
 	font: normal normal normal 14px/1 FontAwesome;
 	font-size: inherit; /* Can't have font-size inherit on line above, so need to override */
 	-webkit-font-smoothing: antialiased;
@@ -220,86 +339,180 @@ kbd {
 }
 
 #viewport .lt::before { content: "\f0c9"; /* http://fontawesome.io/icon/bars/ */ }
-#viewport .rt::before { content: "\f0c0"; /* http://fontawesome.io/icon/users/ */ }
+#viewport .rt::before { content: "\f0c0"; /* https://fontawesome.com/icons/users?style=solid */ }
 #chat button.menu::before { content: "\f142"; /* http://fontawesome.io/icon/ellipsis-v/ */ }
+#chat button.mentions::before { content: "\f1fa"; /* https://fontawesome.com/icons/at?style=solid */ }
 
+.context-menu-join::before { content: "\f067"; /* http://fontawesome.io/icon/plus/ */ }
 .context-menu-user::before { content: "\f007"; /* http://fontawesome.io/icon/user/ */ }
-.context-menu-chan::before { content: "\f0f6"; /* http://fontawesome.io/icon/file-text-o/ */ }
 .context-menu-close::before { content: "\f00d"; /* http://fontawesome.io/icon/times/ */ }
+.context-menu-list::before { content: "\f03a"; /* http://fontawesome.io/icon/list/ */ }
+.context-menu-disconnect::before { content: "\f127"; /* https://fontawesome.com/icons/unlink?style=solid */ }
+.context-menu-connect::before { content: "\f0c1"; /* https://fontawesome.com/icons/link?style=solid */ }
+.context-menu-action-whois::before { content: "\f05a"; /* http://fontawesome.io/icon/info-circle/  */ }
+.context-menu-action-kick::before { content: "\f05e"; /* http://fontawesome.io/icon/ban/ */ }
+.context-menu-action-op::before { content: "\f1fa"; /* http://fontawesome.io/icon/at/ */ }
+.context-menu-action-voice::before { content: "\f067"; /* http://fontawesome.io/icon/plus/ */ }
+.context-menu-network::before { content: "\f233"; /* https://fontawesome.com/icons/server?style=solid */ }
+.context-menu-edit::before { content: "\f303"; /* https://fontawesome.com/icons/pencil-alt?style=solid */ }
+.context-menu-clear-history::before { content: "\f1f8"; /* https://fontawesome.com/icons/trash?style=solid */ }
 
-#sidebar .chan.lobby::before,
-#chat .lobby .title::before { content: "\f0a0"; /* http://fontawesome.io/icon/hdd-o/ */ }
+.channel-list-item .not-secure-icon::before {
+	content: "\f071"; /* https://fontawesome.com/icons/exclamation-triangle?style=solid */
+}
 
-#sidebar .chan.query::before,
-#chat .query .title::before { content: "\f0e6"; /* http://fontawesome.io/icon/comments-o/ */ }
+.channel-list-item .not-connected-icon::before,
+.channel-list-item .parted-channel-icon::before {
+	content: "\f127"; /* https://fontawesome.com/icons/unlink?style=solid */
+}
 
-#sidebar .chan.channel::before,
-#chat .channel .title::before { content: "\f0f6"; /* http://fontawesome.io/icon/file-text-o/ */ }
+.context-menu-query::before,
+.context-menu-action-query::before,
+.channel-list-item[data-type="query"]::before { content: "\f075"; /* https://fontawesome.com/icons/comment?style=solid */ }
 
-#sidebar .chan.special::before,
-#chat .special .title::before { content: "\f03a"; /* http://fontawesome.io/icon/list/ */ }
+.context-menu-chan::before,
+.channel-list-item[data-type="channel"]::before { content: "\f086"; /* http://fontawesome.io/icon/comments/ */ }
 
-#footer .sign-in::before { content: "\f023"; /* http://fontawesome.io/icon/lock/ */ }
+.channel-list-item[data-type="special"]::before { content: "\f03a"; /* http://fontawesome.io/icon/list/ */ }
+
+.channel-list-item.has-draft:not(.active):not([data-type="lobby"])::before { content: "\f304"; /* https://fontawesome.com/icons/pen?style=solid */ }
+
 #footer .connect::before { content: "\f067"; /* http://fontawesome.io/icon/plus/ */ }
 #footer .settings::before { content: "\f013"; /* http://fontawesome.io/icon/cog/ */ }
 #footer .help::before { content: "\f059"; /* http://fontawesome.io/icon/question/ */ }
-#footer .sign-out::before { content: "\f011"; /* http://fontawesome.io/icon/power-off/ */ }
 
+#form #upload::before { content: "\f0c6"; /* https://fontawesome.com/icons/paperclip?style=solid */ }
 #form #submit::before { content: "\f1d8"; /* http://fontawesome.io/icon/paper-plane/ */ }
 
-#chat .invite .from::before {
-	content: "\f003"; /* http://fontawesome.io/icon/envelope-o/ */
+#chat .msg[data-type="away"] .from::before,
+#chat .msg[data-type="back"] .from::before {
+	content: "\f017"; /* https://fontawesome.com/icons/clock?style=solid */
+	color: #7f8c8d;
+}
+
+#help .website-link::before,
+#help .documentation-link::before,
+#help .report-issue-link::before {
+	display: inline-block;
+	margin-right: 5px;
+
+	/* These 2 directives are loosely taken from .fa-fw */
+	width: 1.35em;
+	text-align: center;
+}
+
+#help .website-link::before { content: "\f0ac"; /* http://fontawesome.io/icon/globe/ */ }
+#help .documentation-link::before { content: "\f19d"; /* http://fontawesome.io/icon/graduation-cap/ */ }
+#help .report-issue-link::before { content: "\f188"; /* http://fontawesome.io/icon/bug/ */ }
+
+#chat .msg[data-type="invite"] .from::before {
+	content: "\f0e0"; /* https://fontawesome.com/icons/envelope?style=solid */
 	color: #2ecc40;
 }
 
-#chat .part .from::before,
-#chat .quit .from::before {
-	content: "\f08b"; /* http://fontawesome.io/icon/sign-out/ */
+#chat .msg[data-type="part"] .from::before,
+#chat .msg[data-type="quit"] .from::before {
+	content: "\f2f5"; /* https://fontawesome.com/icons/sign-out-alt?style=solid */
 	color: #ff4136;
 	display: inline-block;
-	-webkit-transform: rotate(180deg);
 	transform: rotate(180deg);
 }
 
-#chat .topic .from::before {
+#chat .msg[data-type="topic"] .from::before {
 	content: "\f0a1"; /* http://fontawesome.io/icon/bullhorn/ */
 	color: #2ecc40;
 }
 
-#chat .mode .from::before {
+#chat .msg[data-type="mode_channel"] .from::before,
+#chat .msg[data-type="mode"] .from::before {
 	content: "\f05a"; /* http://fontawesome.io/icon/info-circle/ */
 	color: #2ecc40;
 }
 
-#chat .ctcp .from::before {
-	content: "\f0f6"; /* http://fontawesome.io/icon/file-text-o/ */
+#chat .msg[data-command="motd"] .from::before {
+	content: "\f02e"; /* https://fontawesome.com/icons/bookmark?style=solid */
+	color: var(--body-color-muted);
 }
 
-#chat .whois .from::before {
+#chat .msg[data-command="help"] .from::before {
+	content: "\f059"; /* https://fontawesome.com/icons/question-circle?style=solid */
+	color: var(--body-color-muted);
+}
+
+#chat .msg[data-command="info"] .from::before {
+	content: "\f05a"; /* https://fontawesome.com/icons/info-circle?style=solid */
+	color: var(--body-color-muted);
+}
+
+#chat .msg[data-type="ctcp"] .from::before,
+#chat .msg[data-type="ctcp_request"] .from::before {
+	content: "\f15c"; /* https://fontawesome.com/icons/file-alt?style=solid */
+	color: var(--body-color-muted);
+}
+
+#chat .msg[data-type="whois"] .from::before {
 	content: "\f007"; /* http://fontawesome.io/icon/user/ */
 	color: #2ecc40;
 }
 
-#chat .nick .from::before {
+#chat .msg[data-type="nick"] .from::before {
 	content: "\f007"; /* http://fontawesome.io/icon/user/ */
 	color: #2ecc40;
 }
 
-#chat .join .from::before {
-	content: "\f090"; /* http://fontawesome.io/icon/sign-in/ */
+#chat .msg[data-type="join"] .from::before {
+	content: "\f2f6"; /* https://fontawesome.com/icons/sign-in-alt?style=solid */
 	color: #2ecc40;
 }
 
-#chat .kick .from::before {
+#chat .msg[data-type="kick"] .from::before {
 	content: "\f05e"; /* http://fontawesome.io/icon/ban/ */
 	color: #ff4136;
 }
 
-#chat .action .from::before {
+#chat .msg[data-type="raw"] .from::before {
+	content: "\f101"; /* https://fontawesome.com/icons/angle-double-right?style=solid */
+}
+
+#chat .msg.self[data-type="raw"] .from::before {
+	content: "\f359"; /* https://fontawesome.com/icons/arrow-alt-circle-left?style=solid */
+	color: #2ecc40;
+}
+
+#chat .msg[data-type="action"] .from::before {
 	content: "\f005"; /* http://fontawesome.io/icon/star/ */
 }
 
+#chat .msg[data-type="plugin"] .from::before {
+	content: "\f1e6"; /* http://fontawesome.io/icon/plug/ */
+	transform: rotate(45deg);
+	display: inline-block;
+	padding: 1px;
+}
+
+#chat .msg-statusmsg,
+#chat .msg-shown-in-active {
+	cursor: help;
+	margin-right: 5px;
+}
+
+#chat .msg-statusmsg span::before,
+#chat .msg-shown-in-active span::before {
+	font-size: 10px;
+	content: "\f06e"; /* https://fontawesome.com/icons/eye?style=solid */
+}
+
+#chat .msg-statusmsg {
+	border-radius: 2px;
+	padding: 2px 4px;
+	background-color: #ff9e18;
+	color: #222;
+}
+
 #chat .toggle-button {
+	display: inline-block;
+	transition: opacity 0.2s, transform 0.2s;
+
 	/* These 2 directives are loosely taken from .fa-fw */
 	width: 1.35em;
 	text-align: center;
@@ -313,11 +526,11 @@ kbd {
 	color: #cfcfcf;
 	content: "\f002"; /* http://fontawesome.io/icon/search/ */
 	position: absolute;
-	right: 18px;
-	font-size: 14px;
-	line-height: 50px;
+	right: 13px;
+	line-height: 45px;
 }
 
+#connect .extra-help::before,
 #settings .extra-help::before {
 	content: "\f059"; /* http://fontawesome.io/icon/question-circle/ */
 }
@@ -325,18 +538,6 @@ kbd {
 #settings #play::before {
 	content: "\f028"; /* http://fontawesome.io/icon/volume-up/ */
 	margin-right: 9px;
-}
-
-#set-nick::before {
-	content: "\f040"; /* http://fontawesome.io/icon/pencil/ */
-}
-
-#submit-nick::before {
-	content: "\f00c"; /* http://fontawesome.io/icon/check/ */
-}
-
-#cancel-nick::before {
-	content: "\f00d"; /* http://fontawesome.io/icon/times/ */
 }
 
 #image-viewer .previous-image-btn::before {
@@ -347,58 +548,58 @@ kbd {
 	content: "\f105"; /* http://fontawesome.io/icon/angle-right/ */
 }
 
+#image-viewer .open-btn::before {
+	content: "\f35d"; /* https://fontawesome.com/icons/external-link-alt?style=solid */
+}
+
 /* End icons */
 
-#wrap {
-	height: 100%;
-	overflow: hidden;
-}
-
 #viewport {
+	display: flex;
 	height: 100%;
-	transition: transform 160ms, -webkit-transform 160ms;
-	-webkit-transform: translateZ(0);
-	transform: translateZ(0);
 }
 
-#viewport.menu-open {
-	-webkit-transform: translate3d(220px, 0, 0);
-	transform: translate3d(220px, 0, 0);
-}
-
-#viewport.menu-dragging {
-	transition: none !important;
-}
-
-#viewport.menu-open .messages {
-	pointer-events: none;
-}
-
-#chat button,
 #form button,
-#chat .user {
+.header button,
+.reveal-password span {
 	transition: opacity 0.2s;
 }
 
-#chat button:hover,
-#form button:hover {
+#form button:hover,
+.header button:hover,
+.reveal-password span:hover {
 	opacity: 0.6;
 }
 
 #viewport .lt,
 #viewport .rt,
+#chat button.mentions,
 #chat button.menu {
-	color: #ccc;
-	display: none;
-	float: left;
+	color: #607992;
+	display: flex;
 	font-size: 14px;
 	line-height: 1;
 	height: 36px;
-	margin: 6px 12px 0 -12px;
 	width: 36px;
+	margin-top: 6px;
+	flex-shrink: 0;
 }
 
+#viewport .lt::before,
+#viewport .rt::before,
+#chat button.mentions::before,
+#chat button.menu::before {
+	width: 36px;
+	line-height: 36px; /* Fix alignment in Microsoft Edge */
+}
+
+/* Channel list button stays fixed when scrolling... */
 #viewport .lt {
+	position: fixed;
+}
+
+/* ... Except on chat windows, relative to include the notification dot */
+#viewport #chat .lt {
 	position: relative;
 }
 
@@ -412,288 +613,330 @@ kbd {
 	width: 10px;
 	height: 10px;
 	border-radius: 50%;
-	border: 2px solid white;
+	border: 2px solid var(--window-bg-color);
 	opacity: 0;
 	transition: opacity 0.2s;
+	background-clip: padding-box; /* Fix border-radius bleeding color */
 }
 
-#viewport .lt.notified::after {
+#viewport.notified .lt::after {
 	opacity: 1;
 }
 
-#viewport .rt-tooltip {
-	float: right;
-}
-
-#viewport .rt {
-	display: block;
-	margin: 6px -12px 0 0;
-}
-
-#chat button.menu {
-	display: block;
-	float: right;
-	margin: 6px -8px 0 12px;
-}
-
-#viewport.rt #chat .sidebar {
-	right: -180px;
+#viewport.userlist-open #chat .userlist {
+	display: flex;
 }
 
 #sidebar {
-	bottom: 48px;
-	left: 0;
-	overflow: auto;
-	overflow-x: hidden;
-	-webkit-overflow-scrolling: touch;
-	position: absolute;
-	top: 0;
+	display: none;
+	flex-direction: column;
 	width: 220px;
+	max-height: 100%;
+	will-change: transform;
+	color: #b7c5d1; /* same as .channel-list-item color */
 }
 
 #viewport.menu-open #sidebar {
-	will-change: transform;
+	display: flex;
 }
 
-#sidebar button,
-#sidebar .chan,
-#sidebar .sign-out {
-	border: 1px solid transparent;
-	border-radius: 2px;
-	color: #99a2b4;
-	cursor: pointer;
+#sidebar .scrollable-area {
+	overflow-x: auto;
+	flex-grow: 1;
+	touch-action: pan-y;
+	scrollbar-width: thin;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+}
+
+#sidebar .logo-container {
+	text-align: center;
+}
+
+#sidebar .logo,
+#sidebar .logo-inverted {
+	height: 45px;
+}
+
+#sidebar .logo {
+	display: none;
+}
+
+.channel-list-item,
+#sidebar .empty {
 	font-size: 14px;
 }
 
-#sidebar button:hover,
-#sidebar .chan:hover,
-#sidebar .active {
+.channel-list-item {
+	display: flex;
+	padding: 8px 14px;
+	position: relative;
+	cursor: pointer;
+}
+
+/* Channels/queries must be white on hover and active */
+#footer button:hover,
+#footer button.active,
+.channel-list-item:hover,
+.channel-list-item.active {
 	color: #fff;
 }
 
-#sidebar .networks {
-	padding: 20px 30px 0;
+/* All lobbies/channels/queries and footer buttons must have a half-transparent
+background on hover (unless active) */
+.channel-list-item:hover,
+#footer button:hover {
+	background-color: rgba(48, 62, 74, 0.5); /* #303e4a x 50% alpha */
 }
 
-#sidebar .networks:empty {
-	padding: 0;
+/* Darker background and defualt cursor for active channels */
+#footer button.active,
+.channel-list-item.active {
+	background-color: #303e4a;
+	cursor: default;
 }
 
-#sidebar .network,
-#sidebar .network-placeholder {
-	margin-bottom: 30px;
+/* Remove background on hovered/active channel when sorting/drag-and-dropping */
+.ui-sortable-ghost,
+.channel-list-item.ui-sortable-dragged,
+.ui-sortable-dragged .channel-list-item,
+.ui-sortable-active .channel-list-item:hover,
+.ui-sortable-active .channel-list-item.active {
+	background: transparent;
+}
+
+.ui-sortable-ghost::after {
+	background: var(--body-bg-color);
+	border: 1px dashed #99a2b4;
+	border-radius: 6px;
+	content: " ";
+	display: block;
+	position: absolute;
+	left: 10px;
+	top: 0;
+	bottom: 0;
+	right: 10px;
+}
+
+#sidebar .network {
+	position: relative;
+	margin-bottom: 20px;
+	touch-action: pan-y;
 }
 
 #sidebar .empty {
-	color: #9ca5b4;
+	flex-grow: 1;
 	line-height: 1.6;
-	font-size: 12px;
-	margin-top: 20px;
-	padding: 20px 40px;
+	padding: 40px 20px;
 	text-align: center;
 }
 
-#sidebar .chan,
-#sidebar .chan-placeholder {
-	display: block;
-	margin: 1px -10px;
-	padding: 6px 10px 8px 36px;
-	position: relative;
-	text-align: left;
-	transition: color 0.2s;
-	width: 180px;
-	left: auto !important; /* Fix for drag'n'drop not recalculating left position */
-}
-
-#sidebar .chan-placeholder {
-	padding-bottom: 10px;
-}
-
-#sidebar .chan:first-child {
+.channel-list-item[data-type="lobby"] {
 	color: #84ce88;
 	font-size: 15px;
 	font-weight: bold;
+	padding-left: 0;
 }
 
-#sidebar .chan:first-child:hover,
-#sidebar .chan:first-child.active {
+.channel-list-item .lobby-wrap {
+	display: flex;
+	flex-grow: 1;
+	overflow: hidden;
+}
+
+.channel-list-item[data-type="lobby"]:hover,
+.channel-list-item[data-type="lobby"].active {
 	color: #c0f8c3;
 }
 
-#sidebar .chan::before,
-#chat .title::before {
-	float: left;
-	margin-top: 3px;
+.channel-list-item .not-connected-tooltip,
+.channel-list-item .not-secure-tooltip,
+.channel-list-item .parted-channel-tooltip {
+	margin: 0 8px;
+}
+
+.channel-list-item.not-secure {
+	color: #f39c12;
+}
+
+.channel-list-item.not-secure:hover,
+.channel-list-item.not-secure.active {
+	color: #f8c572;
+}
+
+.channel-list-item.not-connected,
+.channel-list-item.parted-channel {
+	color: #e74c3c;
+}
+
+.channel-list-item.not-connected:hover,
+.channel-list-item.not-connected.active,
+.channel-list-item.parted-channel:hover,
+.channel-list-item.parted-channel.active {
+	color: #f1978e;
+}
+
+.channel-list-item::before {
+	width: 14px;
 	margin-right: 12px;
-	text-align: center;
+	line-height: 18px;
 }
 
-#sidebar .chan::before {
-	position: absolute;
-	top: 4px;
-	left: 10px;
-}
-
-#chat .title::before {
-	margin-top: 17px;
-}
-
-#sidebar .chan .name {
+.channel-list-item .name {
 	position: relative;
-	z-index: 0;
-	display: block;
+	flex-grow: 1;
 	overflow: hidden;
 	white-space: nowrap;
 	margin-right: 5px;
 }
 
-#sidebar .chan .name::after {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	width: 20px;
-	background: linear-gradient(to right, rgba(69, 81, 100, 0) 0%, rgba(69, 81, 100, 1) 100%);
-	content: " ";
+.header .topic,
+.channel-list-item .name {
+	mask-image: linear-gradient(to left, transparent, black 20px);
 }
 
-#sidebar .badge {
+.channel-list-item .badge,
+#sidebar .add-channel-tooltip,
+.channel-list-item .close-tooltip {
+	flex-shrink: 0;
+	line-height: 1;
+}
+
+.channel-list-item .badge {
 	background: rgba(255, 255, 255, 0.06);
 	border-radius: 3px;
 	color: #afb6c0;
 	font-size: 10px;
-	margin-top: 1px;
-	margin-right: -5px;
-	margin-left: 5px;
-	padding: 3px 6px;
-	float: right;
-	transition: opacity 0.2s, background-color 0.2s, color 0.2s;
+	padding: 4px 6px;
+	transition: background-color 0.2s, color 0.2s;
 }
 
-#sidebar .badge.highlight {
+.channel-list-item .badge:empty {
+	display: none;
+}
+
+.channel-list-item .badge.highlight {
 	background: #fff;
 	color: #49505a;
 }
 
-#sidebar .chan.active .badge,
-#sidebar .badge:empty {
-	opacity: 0;
-}
-
-#sidebar .close {
-	border-radius: 3px;
-	margin-right: 5px;
-	visibility: hidden;
-	opacity: 0;
-	position: absolute;
-	z-index: 2;
-	right: 0;
+.channel-list-item .close {
+	width: 18px;
+	height: 18px;
+	display: none;
 	transition: opacity 0.2s, background-color 0.2s;
 }
 
-#sidebar .close::before {
-	font-size: 18px;
+.channel-list-item .close::before {
+	font-size: 20px;
 	font-weight: normal;
 	display: inline-block;
-	line-height: 18px;
-	width: 18px;
-	height: 18px;
+	line-height: 16px;
 	text-align: center;
 	content: "×";
 	color: #fff;
 }
 
-#sidebar .chan.active .close {
-	visibility: visible;
+.channel-list-item.active .close {
 	opacity: 0.4;
+	display: unset;
 }
 
-#sidebar .chan.active .close:hover {
-	background-color: rgba(0, 0, 0, 0.1);
+.channel-list-item.active .close:hover {
 	opacity: 1;
 }
 
-#sidebar .tse-scrollbar {
-	top: 2px;
-	right: 3px;
+.channel-list-item[data-type="lobby"] .add-channel {
+	border-radius: 3px;
+	width: 18px;
+	height: 18px;
+	opacity: 0.4;
+	transition: opacity 0.2s, background-color 0.2s, transform 0.2s;
+}
+
+.channel-list-item[data-type="lobby"] .add-channel::before {
+	font-size: 20px;
+	font-weight: normal;
+	display: inline-block;
+	line-height: 16px;
+	text-align: center;
+	content: "+";
+	color: #fff;
+}
+
+.channel-list-item[data-type="lobby"] .add-channel:hover {
+	opacity: 1;
+}
+
+.channel-list-item[data-type="lobby"] .add-channel.opened {
+	/* translateZ(0) enables hardware acceleration, this is to avoid jittering when animating */
+	transform: rotate(45deg) translateZ(0);
+}
+
+#sidebar .network .collapse-network {
+	width: 40px;
+	opacity: 0.4;
+	padding-left: 11px;
+	transition: opacity 0.2s;
+	flex-shrink: 0;
+}
+
+#sidebar .network .collapse-network-icon {
+	display: block;
+	width: 20px;
+	height: 20px;
+	transition: transform 0.2s;
+}
+
+#sidebar .network.collapsed .collapse-network-icon {
+	transform: rotate(-90deg);
+}
+
+#sidebar .network .collapse-network-icon::before {
+	content: "\f0d7"; /* http://fontawesome.io/icon/caret-down/ */
+	color: #fff;
+}
+
+#sidebar .collapse-network:hover {
+	opacity: 1;
 }
 
 #footer {
-	background: rgba(0, 0, 0, 0.06);
-	bottom: 0;
 	height: 45px;
-	left: 0;
 	font-size: 14px;
-	line-height: 45px;
-	position: absolute;
-	text-align: center;
-	width: 220px;
-}
-
-#footer button.active {
-	color: #fff;
-}
-
-#footer .icon {
-	color: #9ca5b4;
-	display: inline-block;
-	line-height: 34px;
-	padding: 0 12px;
-	transition: color 0.2s;
-}
-
-#footer .icon:hover {
-	color: #fff;
-}
-
-.signed-out #footer .sign-in {
-	display: inline-block;
-}
-
-.signed-out #footer .connect,
-.signed-out #footer .sign-out {
-	display: none;
-}
-
-.public #footer .sign-in,
-.public #footer .sign-out {
-	display: none;
-}
-
-#footer .sign-in {
-	display: none;
-}
-
-#main {
-	bottom: 0;
-	left: 220px;
-	position: absolute;
-	right: 0;
-	top: 0;
-	display: -webkit-flex;
+	flex-shrink: 0;
 	display: flex;
-	-webkit-flex-direction: column;
-	flex-direction: column;
+	justify-content: center;
 }
 
-.signed-out #main {
-	left: 0; /* Hide the sidebar when user is signed out */
+#footer button {
+	color: #b7c5d1;
+	display: inline-block;
+	width: 45px;
+	height: 100%;
+	border-radius: 5px;
 }
 
-#header {
-	display: none;
-	height: 40px;
+#footer .help.notified::after {
+	content: "\f021";
 	position: absolute;
-	top: 0;
-	width: 100%;
+	bottom: 10px;
+	right: 7px;
+	padding: 2px;
+	font-size: 10px;
+	border-radius: 50%;
+	color: var(--link-color);
+	background: var(--body-bg-color);
 }
 
-#windows label,
+.window li,
+.window p,
+.window label,
 #settings .error {
 	font-size: 14px;
 }
 
-#windows .input {
+.input {
 	background-color: white;
 	border: 1px solid #cdd3da;
 	border-radius: 2px;
@@ -701,148 +944,184 @@ kbd {
 	font-size: 14px;
 	margin: 2px 0;
 	margin-bottom: 10px;
-	outline: 0;
-	padding: 8px 10px;
-	transition: border-color 0.2s;
+	padding: 0 10px;
+	transition: border-color 0.2s, box-shadow 0.2s;
 	width: 100%;
-}
-
-#windows select.input {
 	height: 35px;
+	line-height: 35px;
 }
 
-#user-specified-css-input {
+.input:disabled {
+	background-color: #ddd;
+}
+
+.input:not(:disabled):hover,
+.input:not(:disabled):focus {
+	border-color: #84ce88;
+}
+
+textarea.input {
 	resize: vertical;
+	min-height: 35px;
+	padding: 6px 10px;
+	line-height: 1.5;
 }
 
-#windows .input:hover,
-#windows .input:focus {
-	border-color: #79838c;
-}
-
-#windows .window {
-	background: #fff;
-	bottom: 0;
-	display: none;
-	left: 0;
-	position: absolute;
-	right: 0;
-	top: 0;
+.window {
+	background: var(--window-bg-color);
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	position: relative;
 	overflow-y: auto;
+	height: 100%;
+	scrollbar-width: thin;
+	overscroll-behavior: contain;
 	-webkit-overflow-scrolling: touch;
 }
 
-#windows .window h1 {
+#loading,
+#chat .chat-view {
+	/* flexbox does not seem to scroll without doing this */
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	top: 0;
+}
+
+.window h1 {
 	font-size: 36px;
 }
 
-#windows .window h2 {
-	border-bottom: 1px solid #7f8c8d;
-	color: #7f8c8d;
+.window h2 {
+	border-bottom: 1px solid currentColor;
+	color: var(--window-heading-color);
 	font-size: 22px;
 	margin: 30px 0 10px;
 	padding-bottom: 7px;
 }
 
-#windows .window h3 {
-	color: #7f8c8d;
+.window h2 small {
+	font-size: 16px;
+	line-height: 30px;
+}
+
+.window h3 {
+	color: var(--window-heading-color);
 	font-size: 18px;
 	margin: 20px 0 10px;
 }
 
-#windows .active {
-	display: block;
-}
-
-#windows .header {
-	border-bottom: 1px solid #e7e7e7;
-	line-height: 48px;
-	height: 48px;
-	padding: 0 20px;
+.header {
+	line-height: 45px;
+	height: 45px;
+	padding: 0 6px;
+	display: flex;
+	flex-shrink: 0;
 	overflow: hidden;
 }
 
-#windows .header .title {
-	font-size: 15px;
+#chat .header {
+	border-bottom: 1px solid #e7e7e7;
 }
 
-#windows .header .topic {
-	color: #777;
+.header .title {
+	font-size: 15px;
+	padding-left: 6px;
+	flex-shrink: 0;
+}
+
+.topic-container {
+	position: relative;
+	flex-grow: 1;
+	padding-left: 10px;
+}
+
+.header .topic {
+	color: var(--body-color-muted);
 	margin-left: 8px;
 	word-break: break-all;
+	flex-grow: 1;
+	overflow: hidden;
+	font-size: 14px;
 }
 
-#windows .window .header {
-	display: none;
+.header .topic-input {
+	color: inherit;
+	background: transparent;
+	border: 1px solid #cdd3da;
+	border-radius: 2px;
+	padding-right: 37px;
+	padding-left: 10px;
+	width: 100%;
+	height: 35px;
+	overflow: hidden;
+	font-size: 14px;
+	outline: none;
 }
 
-#chat-container,
-#chat .chan {
+.topic-container .save-topic {
 	position: absolute;
-	top: 0;
+	top: 6px;
 	right: 0;
-	bottom: 0;
-	left: 0;
 }
 
-#windows #chat-container.active {
-	display: -webkit-flex;
+.topic-container .save-topic span {
+	font-size: 16px;
+	color: #607992;
+	width: 35px;
+	height: 35px;
 	display: flex;
-	-webkit-flex-direction: column;
-	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	cursor: pointer;
+	appearance: none;
+}
+
+.topic-container .save-topic span:hover {
+	opacity: 0.6;
 }
 
 #chat {
-	position: relative;
 	overflow: hidden;
-	-webkit-flex: 1;
-	flex: 1;
+	flex: 1 0 auto;
+	position: relative;
 }
 
-#chat .chan {
-	display: none;
+#chat .chat-view {
+	display: flex;
+	flex-direction: column;
 }
 
-#chat .chan.active {
-	display: block;
-}
-
-#chat .condensed {
+#chat .msg[data-type="condensed"] {
 	flex-wrap: wrap;
 }
 
-#chat .condensed .content {
+#chat .msg[data-type="condensed"] .content {
 	flex: 1;
 }
 
 /* Ensures expanded status messages always take up the full width */
-#chat .condensed .msg {
+#chat .msg[data-type="condensed"] .msg {
 	flex-basis: 100%;
 }
 
 #chat .condensed-summary .content {
 	display: block;
 	cursor: pointer;
-	transition: opacity 0.2s;
+	user-select: none;
 }
 
 #chat .condensed-summary {
-	display: none;
-}
-
-#chat.condensed-status-messages .condensed-summary {
 	display: flex;
 }
 
-#chat .condensed-summary:hover {
-	opacity: 0.6;
+#chat .condensed-summary .content:hover {
+	text-decoration: underline;
 }
 
-#chat .condensed-summary .toggle-button:hover {
-	opacity: 1;
-}
-
-#chat.condensed-status-messages .condensed.closed .msg {
+#chat .msg.closed[data-type="condensed"] .msg {
 	display: none;
 }
 
@@ -850,87 +1129,132 @@ kbd {
 	visibility: hidden;
 }
 
-#windows .header .topic,
+#form,
 .messages .msg,
-.sidebar {
-	font: 13px Consolas, Menlo, Monaco, "Lucida Console", "DejaVu Sans Mono", "Courier New", monospace;
+.userlist {
+	font-size: 14px;
 	line-height: 1.4;
 }
 
-#windows #chat .header {
-	display: block;
-}
-
-#chat .chat,
-#chat .sidebar {
-	top: 48px;
+#chat .chat-content {
+	display: flex;
+	flex-grow: 1;
+	overflow: hidden;
+	position: relative;
 }
 
 #chat .chat {
-	bottom: 0;
-	left: 0;
-	right: 0;
 	overflow: auto;
-	will-change: transform, scroll-position;
+	overflow-x: hidden;
+	display: flex;
+	flex-grow: 1;
+	flex-direction: column;
+	scrollbar-width: thin;
+	overscroll-behavior: contain;
 	-webkit-overflow-scrolling: touch;
-	position: absolute;
+	outline: none;
 }
 
-#chat .channel .chat {
-	right: 180px;
-}
-
-#chat .special {
-	bottom: -47px;
-}
-
-#viewport.rt .chat {
-	right: 0;
-}
-
-#chat .sidebar {
-	background: #fff;
+#chat .userlist {
 	border-left: 1px solid #e7e7e7;
-	bottom: 0;
-	position: absolute;
-	right: 0;
 	width: 180px;
-	transition: right 0.4s;
+	display: none;
+	flex-direction: column;
+	flex-shrink: 0;
+	touch-action: pan-y;
+}
+
+/**
+  * Toggled via JavaScript
+  */
+#sidebar .join-form {
+	padding: 0 18px 8px;
+}
+
+#sidebar .join-form .input {
+	display: block;
+	margin-left: auto;
+	margin-right: auto;
+	margin-top: 5px;
+	margin-bottom: 5px;
+}
+
+#sidebar .join-form .btn {
+	display: block;
+	width: 100%;
+	margin: auto;
 }
 
 #chat .show-more {
-	display: none;
 	padding: 10px;
+	padding-top: 15px;
 	padding-bottom: 0;
 	width: 100%;
 }
 
-#chat .show-more-button {
-	background: #f4f4f4;
-	background-image: linear-gradient(#f4f4f4, #ececec);
-	border: 1px solid #d7d7d7;
-	border-bottom-color: #b7b7b7;
-	border-radius: 2px;
-	color: #555;
-	font-size: 12px;
-	height: 34px;
-	line-height: 0;
+#chat .show-more .btn {
 	width: 100%;
+	margin: 0;
 }
 
-#chat .show-more-button:hover {
+.scroll-down {
+	position: absolute;
+	bottom: 16px;
+	right: 16px;
+	z-index: 2;
+	pointer-events: none;
+	opacity: 0;
+	transform: translateY(16px);
+	transition: transform 0.2s, opacity 0.2s;
+	cursor: pointer;
+}
+
+.scroll-down-shown {
 	opacity: 1;
+	transform: none;
+	pointer-events: auto;
+}
+
+.scroll-down-arrow {
+	width: 36px;
+	height: 36px;
+	line-height: 34px;
+	border-radius: 50%;
+	background: var(--window-bg-color);
+	color: var(--button-color);
+	border: 2px solid var(--button-color);
+	text-align: center;
+	transition: background 0.2s, color 0.2s;
+	box-shadow: 0 6px 10px 0 rgba(0, 0, 0, 0.15);
+}
+
+.scroll-down:hover .scroll-down-arrow {
+	background: var(--button-color);
+	color: var(--button-text-color-hover);
+}
+
+.scroll-down-arrow::after {
+	content: "\f107"; /* https://fontawesome.com/icons/angle-down?style=solid */
+}
+
+.userlist-open .chat-view[data-type="channel"] .scroll-down {
+	right: 196px;
 }
 
 #chat .messages {
 	padding: 10px 0;
+	touch-action: pan-y;
+}
+
+#chat .chat-view:not([data-type="special"]) .messages {
+	margin-top: auto;
 }
 
 #chat .msg {
 	word-wrap: break-word;
 	word-break: break-word; /* Webkit-specific */
 	display: flex;
-	overflow: hidden;
+	align-items: flex-start;
 	position: relative;
 }
 
@@ -950,18 +1274,14 @@ kbd {
 	left: 0;
 	right: 0;
 	top: 50%;
-	border-top: 1px solid rgba(231, 76, 60, 0.5);
+	border-top: 1px solid var(--unread-marker-color);
 }
 
 #chat .unread-marker-text::before {
 	content: "New messages";
-	background-color: white;
-	color: rgba(231, 76, 60, 0.5);
+	background-color: var(--window-bg-color);
+	color: var(--unread-marker-color);
 	padding: 0 10px;
-}
-
-#chat .unread-marker:last-child {
-	display: none;
 }
 
 #chat .date-marker {
@@ -980,40 +1300,41 @@ kbd {
 	left: 0;
 	right: 0;
 	top: 50%;
-	border-top: 1px solid rgba(0, 107, 59, 0.5);
+	border-top: 1px solid var(--date-marker-color);
 }
 
 #chat .date-marker-text::before {
-	content: attr(data-label);
-	background-color: white;
-	color: rgba(0, 107, 59, 0.5);
+	content: attr(aria-label);
+	background-color: var(--window-bg-color);
+	color: var(--date-marker-color);
 	padding: 0 10px;
-}
-
-.inline-channel {
-	cursor: pointer;
-}
-
-.inline-channel:hover {
-	opacity: 0.6;
 }
 
 #chat .time,
 #chat .from,
 #chat .content {
-	display: block;
-	padding: 2px 0;
+	padding: 3px 0;
 	flex: 0 0 auto;
 }
 
 #chat .time {
-	color: #ddd;
+	color: var(--body-color-muted);
 	padding-left: 10px;
+	width: 55px;
+	font-variant-numeric: tabular-nums;
+	box-sizing: content-box; /* highlights have a border-left */
+}
+
+#chat.time-12h .time,
+#chat.time-seconds .time {
+	width: 75px;
+}
+
+#chat.time-seconds.time-12h .time {
+	width: 90px;
 }
 
 #chat .from {
-	border-right: 1px solid #f6f6f6;
-	color: #b1c3ce;
 	padding-right: 10px;
 	text-align: right;
 	width: 134px;
@@ -1025,69 +1346,74 @@ kbd {
 #chat .content {
 	flex: 1 1 auto;
 	min-width: 0;
+	padding-left: 10px;
+	padding-right: 6px;
+	border-left: 1px solid #f6f6f6;
+	overflow: hidden; /* Prevents Zalgo text to expand beyond messages */
+	text-align: left; /* so RTL text will still be aligned left, not right */
 }
 
-#loading a,
-#chat .special .time,
-#chat .special .from {
-	display: none;
+#chat .msg[data-type="unhandled"] .from {
+	color: var(--body-color-muted);
 }
 
-#chat a {
-	color: #50a656;
+#chat .chat-view[data-type="special"] table th {
+	word-break: normal;
+}
+
+/* Parsed nicks and channels */
+
+#chat .user,
+.inline-channel {
+	cursor: pointer;
+}
+
+.chat .user:hover,
+.inline-channel:hover {
+	text-decoration: underline;
 }
 
 /* Nicknames */
 
 #chat .user {
-	cursor: pointer;
 	color: #50a656;
 }
 
-#chat .user:hover {
-	opacity: 0.6;
-}
-
-#chat.colored-nicks .user.color-1 { color: #1396cf; }
-#chat.colored-nicks .user.color-2 { color: #ffcf89; }
-#chat.colored-nicks .user.color-3 { color: #00dc5f; }
-#chat.colored-nicks .user.color-4 { color: #ff5bc8; }
-#chat.colored-nicks .user.color-5 { color: #ff0e1b; }
+#chat.colored-nicks .user.color-1 { color: #107ead; }
+#chat.colored-nicks .user.color-2 { color: #a86500; }
+#chat.colored-nicks .user.color-3 { color: #008a3c; }
+#chat.colored-nicks .user.color-4 { color: #e00096; }
+#chat.colored-nicks .user.color-5 { color: #f0000c; }
 #chat.colored-nicks .user.color-6 { color: #000094; }
 #chat.colored-nicks .user.color-7 { color: #006441; }
 #chat.colored-nicks .user.color-8 { color: #00566e; }
-#chat.colored-nicks .user.color-9 { color: #ff0078; }
-#chat.colored-nicks .user.color-10 { color: #15d5a3; }
+#chat.colored-nicks .user.color-9 { color: #e6006b; }
+#chat.colored-nicks .user.color-10 { color: #0d8766; }
 #chat.colored-nicks .user.color-11 { color: #006b3b; }
-#chat.colored-nicks .user.color-12 { color: #00c5ba; }
+#chat.colored-nicks .user.color-12 { color: #00857e; }
 #chat.colored-nicks .user.color-13 { color: #00465b; }
-#chat.colored-nicks .user.color-14 { color: #ffafce; }
-#chat.colored-nicks .user.color-15 { color: #ff3b12; }
-#chat.colored-nicks .user.color-16 { color: #16cc6a; }
-#chat.colored-nicks .user.color-17 { color: #ff0072; }
-#chat.colored-nicks .user.color-18 { color: #ff5877; }
-#chat.colored-nicks .user.color-19 { color: #ff1753; }
+#chat.colored-nicks .user.color-14 { color: #eb005a; }
+#chat.colored-nicks .user.color-15 { color: #e62600; }
+#chat.colored-nicks .user.color-16 { color: #0f8546; }
+#chat.colored-nicks .user.color-17 { color: #e60067; }
+#chat.colored-nicks .user.color-18 { color: #eb002b; }
+#chat.colored-nicks .user.color-19 { color: #eb003f; }
 #chat.colored-nicks .user.color-20 { color: #007a56; }
 #chat.colored-nicks .user.color-21 { color: #095092; }
 #chat.colored-nicks .user.color-22 { color: #000bde; }
-#chat.colored-nicks .user.color-23 { color: #00bca9; }
+#chat.colored-nicks .user.color-23 { color: #008577; }
 #chat.colored-nicks .user.color-24 { color: #00367d; }
-#chat.colored-nicks .user.color-25 { color: #009ec4; }
+#chat.colored-nicks .user.color-25 { color: #007e9e; }
 #chat.colored-nicks .user.color-26 { color: #006119; }
-#chat.colored-nicks .user.color-27 { color: #008bb8; }
-#chat.colored-nicks .user.color-28 { color: #469c00; }
-#chat.colored-nicks .user.color-29 { color: #ff0f95; }
-#chat.colored-nicks .user.color-30 { color: #ff7615; }
-#chat.colored-nicks .user.color-31 { color: #ff4846; }
-#chat.colored-nicks .user.color-32 { color: #ff199b; }
+#chat.colored-nicks .user.color-27 { color: #007ea8; }
+#chat.colored-nicks .user.color-28 { color: #3c8500; }
+#chat.colored-nicks .user.color-29 { color: #e6007e; }
+#chat.colored-nicks .user.color-30 { color: #c75300; }
+#chat.colored-nicks .user.color-31 { color: #eb0400; }
+#chat.colored-nicks .user.color-32 { color: #e60082; }
 
-#chat .content {
-	padding-left: 10px;
-	padding-right: 6px;
-}
-
-#chat .self .text {
-	color: #999;
+#chat .self .content {
+	color: var(--body-color-muted);
 }
 
 #chat .msg.channel_list_loading .text {
@@ -1102,15 +1428,20 @@ kbd {
 }
 
 #chat table.channel-list,
-#chat table.ban-list {
+#chat table.ban-list,
+#chat table.invite-list,
+#chat table.ignore-list {
 	margin: 5px 10px;
 	width: calc(100% - 30px);
 }
 
 #chat table.channel-list th,
 #chat table.ban-list th,
+#chat table.invite-list th,
+#chat table.ignore-list th,
 #chat table.channel-list td,
-#chat table.ban-list td {
+#chat table.ban-list td,
+#chat table.invite-list td {
 	padding: 5px;
 	vertical-align: top;
 	border-bottom: #eee 1px solid;
@@ -1124,7 +1455,9 @@ kbd {
 #chat table.channel-list .topic,
 #chat table.ban-list .hostmask,
 #chat table.ban-list .banned_by,
-#chat table.ban-list .banned_at {
+#chat table.ban-list .banned_at,
+#chat table.ignore-list .hostmask,
+#chat table.ignore-list .when {
 	text-align: left;
 }
 
@@ -1133,121 +1466,195 @@ kbd {
 	width: 50px;
 }
 
-#chat table.channel-list td.channel .inline-channel {
-	color: #428bca;
-}
-
-#chat table.channel-list td {
-	color: #555;
-}
-
-#chat.hide-status-messages .condensed,
-#chat.hide-motd .motd {
+#chat.hide-motd .msg[data-command="motd"] {
 	display: none !important;
 }
 
-#chat .condensed .content,
-#chat .join .content,
-#chat .kick .content,
-#chat .mode .content,
-#chat .nick .content,
-#chat .part .content,
-#chat .quit .content,
-#chat .topic .content,
-#chat .topic_set_by .content {
-	color: #999;
+#chat .msg[data-type="monospace_block"] .text {
+	background: #f6f6f6;
+	display: inline-block;
+	border-radius: 4px;
+	padding: 6px;
 }
 
-#chat .action .from,
-#chat .action .text,
-#chat .action .user {
+#chat .msg[data-type="condensed"] .content,
+#chat .msg[data-type="away"] .content,
+#chat .msg[data-type="back"] .content,
+#chat .msg[data-type="join"] .content,
+#chat .msg[data-type="kick"] .content,
+#chat .msg[data-type="mode"] .content,
+#chat .msg[data-type="nick"] .content,
+#chat .msg[data-type="part"] .content,
+#chat .msg[data-type="quit"] .content,
+#chat .msg[data-type="topic"] .content,
+#chat .msg[data-type="topic_set_by"] .content {
+	color: var(--body-color-muted);
+}
+
+#chat .msg[data-type="action"] .from,
+#chat .msg[data-type="action"] .content,
+#chat .msg[data-type="action"] .user {
 	color: #f39c12;
 }
 
-#chat .notice .time,
-#chat .notice .text,
-#chat .chan .notice .user {
-	color: #0074d9 !important;
+#chat .msg[data-type="notice"] .time,
+#chat .msg[data-type="notice"] .content,
+#chat .msg[data-type="notice"] .user {
+	color: #0074d9;
 }
 
-#chat .notice .user::before {
+#chat .msg[data-type="notice"] .from .user::before {
 	content: "Notice: ";
 }
 
-#chat .error,
-#chat .error .from,
-#chat .channel .highlight .from,
-#chat .channel .highlight .text,
-#chat .channel .highlight .user {
-	color: #f00;
+#chat .msg[data-type="error"],
+#chat .msg[data-type="error"] .from {
+	color: #e74c3c;
 }
 
-#chat .toggle-button {
-	display: inline-block;
-	transition: opacity 0.2s, transform 0.2s;
+#chat .chat-view[data-type="channel"] .msg.highlight {
+	background-color: var(--highlight-bg-color);
+	border-left: 5px solid var(--highlight-border-color);
 }
 
+#chat .chat-view[data-type="channel"] .msg.highlight .time {
+	padding-left: 5px;
+	color: #696969;
+}
+
+#chat .chat-view[data-type="channel"] .msg.highlight .content {
+	border-left: 1px solid var(--highlight-bg-color);
+}
+
+#chat .preview-size {
+	margin-left: 5px;
+	user-select: none;
+}
+
+#chat .toggle-content.opened .more-caret, /* Expand/Collapse link previews */
 #chat .toggle-button.opened, /* Thumbnail toggle */
-#chat .msg.condensed:not(.closed) .toggle-button { /* Expanded status message toggle */
+#chat .msg:not(.closed)[data-type="condensed"] .toggle-button { /* Expanded status message toggle */
 	transform: rotate(90deg);
 }
 
-#chat .toggle-content {
-	background: #f5f5f5;
-	border-radius: 2px;
-	display: none;
-	color: #222;
-	font-size: 12px;
-	max-width: 100%;
-	margin: 2px 0;
-	overflow: hidden;
+#chat .preview {
+	display: flex; /* Fix odd margin added by inline-flex in .toggle-content */
 }
 
+#chat .toggle-content {
+	background: #f6f6f6;
+	border-radius: 5px;
+	max-width: 100%;
+	margin: 0;
+	margin-top: 6px;
+	overflow: hidden;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+	display: inline-flex !important;
+	align-items: flex-start;
+	white-space: normal;
+}
+
+/* This applies to images of preview-type-image and thumbnails of preview-type-link */
 #chat .toggle-content img {
 	max-width: 100%;
 	max-height: 128px;
 	display: block;
+	cursor: zoom-in;
 }
 
+#chat .toggle-content pre.prefetch-error {
+	padding: 0;
+	margin: 0;
+	color: inherit;
+	background-color: transparent;
+}
+
+#chat .toggle-content .prefetch-error {
+	display: none;
+}
+
+#chat .toggle-content.opened .prefetch-error {
+	display: inline;
+}
+
+/* This applies to thumbnails of preview-type-link only */
 #chat .toggle-content .thumb {
-	max-width: 48px;
-	max-height: 32px;
+	max-height: 54px;
+	max-width: 96px;
 }
 
-#chat .toggle-thumbnail {
-	padding: 6px;
+#chat .toggle-type-error,
+#chat .toggle-content .toggle-text {
+	padding: 8px 10px;
 }
 
-#chat .toggle-text {
-	padding: 6px;
-	min-width: 0;
-	display: flex;
-	flex-direction: column;
+#chat .toggle-content .toggle-text {
 	white-space: nowrap;
-	color: inherit;
-}
-
-#chat .toggle-text:not(:first-child) {
-	padding-left: 0;
-}
-
-#chat .toggle-content .head,
-#chat .toggle-content .body {
-	text-overflow: ellipsis;
 	overflow: hidden;
-	color: inherit;
+	text-align: initial;
+}
+
+#chat .toggle-content.opened .toggle-text {
+	white-space: normal;
 }
 
 #chat .toggle-content .head {
+	display: flex;
+	align-items: flex-start;
 	font-weight: bold;
 }
 
-#chat .toggle-content .body {
-	color: #999;
+#chat .toggle-type-error,
+#chat .toggle-text .body {
+	color: #717171;
 }
 
-#chat .toggle-content.show {
-	display: inline-flex !important;
+#chat .toggle-text a {
+	color: inherit;
+}
+
+#chat .toggle-text .overflowable {
+	text-overflow: ellipsis;
+	overflow: hidden;
+	flex-grow: 1;
+}
+
+#chat .toggle-content .more {
+	color: var(--link-color);
+	font-weight: normal;
+	margin-left: 10px;
+	flex-shrink: 0;
+}
+
+#chat .toggle-content .more:hover {
+	text-decoration: underline;
+}
+
+#chat .toggle-content .more::after {
+	content: " " attr(aria-label);
+}
+
+#chat .toggle-content .more-caret {
+	display: inline-block;
+	transition: transform 0.2s;
+}
+
+#chat .toggle-content .more-caret::before {
+	content: "\f0da"; /* https://fontawesome.com/icons/caret-right?style=solid */
+}
+
+#chat audio {
+	width: 600px;
+	max-width: 100%;
+}
+
+#chat .toggle-type-video {
+	max-width: 640px;
+}
+
+#chat video {
+	max-width: 100%;
+	max-height: 240px;
 }
 
 /* Do not display an empty div when there are no previews. Useful for example in
@@ -1256,55 +1663,56 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	display: none;
 }
 
-#chat .count {
+#chat .userlist .count {
 	background: #fafafa;
-	height: 48px;
-	left: 0;
-	position: absolute;
-	right: 0;
-	top: 0;
+	height: 45px;
+	flex-shrink: 0;
+	position: relative;
 }
 
-#chat .search {
-	color: #222;
+#chat .userlist .search {
+	color: var(--body-color);
 	border: 0;
 	background: none;
 	font: inherit;
 	outline: 0;
-	padding: 18px 16px;
-	position: relative;
+	padding: 13px;
+	padding-right: 30px;
 	width: 100%;
 }
 
-#chat .names {
-	bottom: 0;
+#chat .userlist .names {
+	flex-grow: 1;
 	overflow: auto;
 	overflow-x: hidden;
-	will-change: transform, scroll-position;
-	-webkit-overflow-scrolling: touch;
 	padding-bottom: 10px;
-	position: absolute;
-	top: 48px;
 	width: 100%;
-}
-
-#chat .names-filtered {
-	display: none;
+	touch-action: pan-y;
+	scrollbar-width: thin;
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
 }
 
 #chat .names .user {
 	display: block;
 	line-height: 1.6;
 	padding: 0 16px;
+	white-space: nowrap;
+}
+
+#chat .user-mode {
+	margin-bottom: 15px;
 }
 
 #chat .user-mode::before {
-	content: "";
-	border-bottom: 1px solid #eee;
+	background: var(--window-bg-color);
+	color: var(--body-color-muted);
 	display: block;
+	font-size: 0.85em;
 	line-height: 1.6;
-	padding: 12px 16px 10px;
-	margin-bottom: 10px;
+	padding: 5px 16px;
+	position: sticky;
+	top: 0;
 }
 
 #chat .user-mode.owner::before {
@@ -1336,21 +1744,59 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 }
 
 #loading {
+	display: flex;
 	font-size: 14px;
-	z-index: 1;
+	height: 100%;
+}
+
+#loading .window {
+	height: initial;
+	display: flex;
+	flex-direction: column;
 }
 
 #loading p {
 	margin-top: 10px;
 }
 
-#loading-slow {
-	display: none;
+#loading-slow,
+#loading-reload {
+	visibility: hidden;
+}
+
+#loading summary {
+	outline: none;
+	cursor: pointer;
+}
+
+#loading pre {
+	text-align: left;
+	white-space: normal;
+}
+
+#sign-in .container,
+#loading-reload-container,
+#loading-status-container {
+	flex: 1 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+}
+
+#loading-reload-container {
+	flex-grow: 0;
+}
+
+#loading .logo-inverted,
+.window .logo-inverted {
+	display: none; /* In dark themes, inverted logo must be used instead */
 }
 
 #sign-in label {
 	display: block;
 	margin-top: 10px;
+	width: 100%;
 }
 
 #sign-in .btn {
@@ -1360,33 +1806,86 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 #sign-in .error {
 	color: #e74c3c;
 	margin-top: 1em;
+	width: 100%;
+}
+
+#connect .connect-row {
+	display: flex;
+}
+
+#connect .connect-row > .input,
+#connect .connect-row > .input-wrap {
+	flex-grow: 1;
 }
 
 #connect label {
-	display: block;
+	width: 25%;
+	flex-shrink: 0;
 	margin-top: 11px;
 }
 
-#connect .port::before {
-	content: ":";
-	margin: 9px 0 0 -17px;
-	position: absolute;
-}
-
 #connect .tls {
-	float: left;
-	font-size: 14px;
+	width: 100%;
+	display: block;
 	margin-top: 6px;
 }
 
 #connect .tls input {
-	float: left;
 	margin: 3px 10px 0 0;
 }
 
+#connect\:host {
+	width: 70%;
+}
+
+#connect\:port {
+	width: 25%;
+}
+
+#connect\:portseparator {
+	width: 5%;
+	text-align: center;
+	display: inline-block;
+}
+
 #connect .btn {
-	float: left;
-	margin-top: 30px;
+	margin-top: 15px;
+	width: 100%;
+}
+
+#settings .apple-push-unsupported,
+#settings .settings-sync-panel {
+	padding: 10px;
+	margin-bottom: 16px;
+	border-radius: 2px;
+	background-color: #d9edf7;
+	color: #31708f;
+}
+
+#settings .settings-sync-panel p:last-child {
+	margin-bottom: 0;
+}
+
+#settings .settings-sync-panel .btn {
+	color: #007bff;
+	border-color: #007bff;
+	margin-bottom: 0;
+}
+
+#settings .settings-sync-panel .btn:hover,
+#settings .settings-sync-panel .btn:focus {
+	background-color: #007bff;
+	color: #fff;
+}
+
+#settings .settings-sync-panel .btn:active,
+#settings .settings-sync-panel .btn:focus {
+	box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.5);
+}
+
+#settings .apple-push-unsupported a {
+	color: inherit;
+	text-decoration: underline;
 }
 
 #settings .opt {
@@ -1398,11 +1897,7 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	margin-right: 6px;
 }
 
-#settings .extra-help,
-#settings #play {
-	color: #7f8c8d;
-}
-
+#connect .extra-help,
 #settings .extra-help {
 	cursor: help;
 }
@@ -1414,6 +1909,7 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 #settings #play {
 	font-size: 14px;
 	transition: opacity 0.2s;
+	color: var(--window-heading-color);
 }
 
 #settings #play:hover {
@@ -1438,14 +1934,67 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	margin-top: 0.2em;
 }
 
+.password-container {
+	position: relative;
+}
+
+.password-container input {
+	padding-right: 37px;
+}
+
+#sign-in .password-container {
+	width: 100%;
+}
+
+#sign-in .password-container .reveal-password {
+	top: 31px;
+}
+
+.password-container .reveal-password {
+	position: absolute;
+	top: 2px;
+	right: 0;
+	appearance: none;
+}
+
+.password-container .reveal-password span {
+	font: normal normal normal 14px/1 FontAwesome;
+	font-size: 16px;
+	color: #607992;
+	width: 35px;
+	height: 35px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	cursor: pointer;
+}
+
+.password-container .reveal-password span::before {
+	content: "\f06e"; /* https://fontawesome.com/icons/eye?style=solid */
+}
+
+.topic-container .save-topic span::before {
+	content: "\f00c"; /* https://fontawesome.com/icons/check?style=solid */
+}
+
+.password-container .reveal-password-visible span::before {
+	content: "\f070"; /* https://fontawesome.com/icons/eye-slash?style=solid */
+	color: #ff4136;
+}
+
+#help .help-version-title {
+	display: flex;
+	justify-content: space-between;
+}
+
 #help .help-item {
 	display: table-row;
+	font-size: 14px;
 }
 
 #help .help-item .subject,
 #help .help-item .description {
 	display: table-cell;
-	font-size: 14px;
 	padding-bottom: 15px;
 }
 
@@ -1458,123 +2007,203 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	margin-bottom: 0;
 }
 
-#help .about {
-	font-size: 14px;
-	line-height: 1.8;
+.whois {
+	display: grid;
+	grid-template-columns: max-content auto;
+	margin: 0;
+}
+
+.whois dt {
+	grid-column-start: 1;
+	margin-right: 20px;
+}
+
+.whois dd {
+	grid-column-start: 2;
+}
+
+.changelog-text {
+	line-height: 1.5;
+}
+
+.changelog-text p {
+	margin-bottom: 16px;
+}
+
+.window#changelog h3 {
+	font-size: 20px;
+	border-bottom: 1px solid currentColor;
+	color: var(--window-heading-color);
+	margin: 30px 0 10px;
+	padding-bottom: 7px;
+}
+
+.window#chat-container {
+	/*
+		Chat has its own scrollbar, so remove the one on parent
+		This caused a performance issue in Chrome
+	*/
+	overflow: hidden;
+}
+
+#version-checker {
+	display: flex;
+	align-items: center;
+	padding: 10px;
+	margin-bottom: 16px;
+	border-radius: 2px;
+	transition: color 0.2s, background-color 0.2s;
+}
+
+#version-checker p,
+#version-checker button {
+	margin-bottom: 0;
+}
+
+#version-checker p {
+	flex: 1;
+	padding-top: 6px;
+	padding-bottom: 6px;
+}
+
+#version-checker::before {
+	margin-left: 6px;
+	margin-right: 12px;
+	font-size: 1.2em;
+}
+
+#version-checker.loading {
+	background-color: #d9edf7;
+	color: #31708f;
+}
+
+#version-checker.loading::before {
+	content: "\f253"; /* https://fontawesome.com/icons/hourglass-end?style=solid */
+}
+
+#version-checker.new-version,
+#version-checker.new-packages {
+	color: #8a6d3b;
+	background-color: #fcf8e3;
+}
+
+#version-checker.new-version::before,
+#version-checker.new-packages::before {
+	content: "\f164"; /* https://fontawesome.com/icons/thumbs-up?style=solid */
+}
+
+#version-checker.error {
+	color: #a94442;
+	background-color: #f2dede;
+}
+
+#version-checker.error::before {
+	content: "\f06a"; /* http://fontawesome.io/icon/exclamation-circle/ */
+}
+
+#version-checker.up-to-date {
+	background-color: #dff0d8;
+	color: #3c763d;
+}
+
+#version-checker.up-to-date::before {
+	content: "\f00c"; /* http://fontawesome.io/icon/check/ */
+}
+
+#upload-progressbar {
+	background: var(--upload-progressbar-color);
+	box-shadow: 0 0 10px var(--upload-progressbar-color);
+	width: 0%;
+	height: 2px;
+	visibility: hidden;
+	position: absolute;
+	top: -1px; /* put it on top of #form's border */
+	left: 0;
+}
+
+#upload-progressbar.upload-progressbar-visible {
+	visibility: visible;
+	transition: 0.3s width ease-in-out;
 }
 
 #form {
-	background: #eee;
-	border-top: 1px solid #ddd;
-	-webkit-flex: 0 0 auto;
 	flex: 0 0 auto;
-	padding: 5px;
-}
-
-#windows #form .input {
-	font: 13px Consolas, Menlo, Monaco, "Lucida Console", "DejaVu Sans Mono", "Courier New", monospace;
-	border: 1px solid #ddd;
-	border-radius: 2px;
+	border: 0;
+	border-top: 1px solid #e7e7e7;
+	border-radius: 0;
 	margin: 0;
-	padding: 0;
+	padding: 6px;
 	background: white;
-	display: -webkit-flex;
 	display: flex;
-	-webkit-align-items: flex-end;
 	align-items: flex-end;
+	position: relative;
 }
 
-#connection-error {
-	display: none;
+#user-visible-error {
+	font-size: 14px;
+	line-height: 1.5;
+	font-weight: 600;
+	padding: 10px;
+	word-spacing: 3px;
+	text-transform: uppercase;
+	background: #e74c3c;
+	color: #fff;
+	text-align: center;
+	cursor: pointer;
 }
-
-#connection-error.shown {
-	display: block;
-}
-
-[contenteditable]:focus {
-	outline: none;
-}
-
-/* Nick editor */
 
 #form #nick {
 	background: #f6f6f6;
 	color: #666;
-	font: inherit;
-	font-size: 11px;
+	font-size: 13px;
 	margin: 4px;
-	line-height: 22px;
-	height: 24px;
-	padding-left: 9px;
-	padding-right: 5px;
+	line-height: 24px;
+	padding: 0 8px;
 	border-radius: 2px;
-	-webkit-flex: 0 0 auto;
-	flex: 0 0 auto;
-	border: 1px solid transparent;
-	transition: border-color 0.2s;
-}
-
-#form #nick-value {
-	padding-right: 5px;
-}
-
-#form #nick.editable {
-	border-color: black;
-}
-
-#nick button#set-nick,
-#nick button#submit-nick,
-#nick button#cancel-nick {
-	color: #aaa;
-	width: 18px;
-}
-
-#nick.editable button#set-nick,
-#nick.editable #set-nick-tooltip,
-#nick button#submit-nick,
-#nick:not(.editable) #save-nick-tooltip,
-#nick button#cancel-nick,
-#nick:not(.editable) #cancel-nick-tooltip {
 	display: none;
 }
 
-#nick.editable button#submit-nick,
-#nick.editable button#cancel-nick {
-	display: inline-block;
+.public #form #nick {
+	display: block;
 }
-
-/* End nick editor */
 
 #form #input {
 	background: transparent;
 	border: none;
 	font: inherit;
-	min-height: 18px; /* Required when computing input height at char deletion */
-	height: 18px;
-	max-height: 90px;
-	line-height: 1.4;
+	min-height: 19px; /* Required when computing input height at char deletion */
+	height: 19px;
+	max-height: 95px; /* min-height/height x number of lines maximum */
+	line-height: 19px; /* should match height */
 	outline: none;
 	margin: 5px;
 	padding: 0;
 	resize: none;
-	-webkit-flex: 1 0 auto;
 	flex: 1 0 auto;
 	align-self: center;
+	touch-action: pan-y;
 }
 
+#form #upload-input {
+	display: none;
+}
+
+#form #upload,
 #form #submit {
-	color: #9ca5b4;
+	color: #607992;
 	font-size: 14px;
 	height: 32px;
-	transition: opacity 0.2s;
 	width: 32px;
-	-webkit-flex: 0 0 auto;
 	flex: 0 0 auto;
 }
 
+#form #upload[disabled],
+#form #submit[disabled] {
+	opacity: 0.5;
+}
+
+#mentions-popup-container,
 #context-menu-container {
-	display: none;
 	position: absolute;
 	top: 0;
 	left: 0;
@@ -1584,18 +2213,20 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	background: transparent;
 }
 
+.mentions-popup,
 #context-menu,
 .textcomplete-menu {
 	position: absolute;
 	list-style: none;
 	margin: 0;
-	padding: 0;
-	min-width: 160px;
+	padding: 0 6px;
+	min-width: 180px;
 	font-size: 14px;
 	background-color: #fff;
 	box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
 	border: 1px solid rgba(0, 0, 0, 0.15);
-	border-radius: 2px;
+	border-radius: 5px;
+	outline: 0;
 }
 
 .context-menu-divider {
@@ -1613,14 +2244,16 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	margin-top: 6px;
 	margin-bottom: 6px;
 	line-height: 1.4;
-	transition: background-color 0.2s;
+	border-radius: 3px;
+	white-space: nowrap;
 }
 
-.context-menu-item:hover,
+.context-menu-item.active,
+.textcomplete-item:focus,
 .textcomplete-item:hover,
-.textcomplete-menu .active {
-	background-color: #f6f6f6;
-	transition: none;
+.textcomplete-menu .active,
+#chat .userlist .user.active {
+	background-color: rgba(0, 0, 0, 0.1);
 }
 
 .context-menu-item::before,
@@ -1634,18 +2267,13 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 }
 
 .textcomplete-item a:hover {
-	opacity: 1;
+	text-decoration: none;
 }
 
 .emoji {
-	display: inline-block;
 	font-size: 1.4em;
-	vertical-align: bottom;
+	vertical-align: text-top;
 	line-height: 1;
-}
-
-.topic .emoji {
-	vertical-align: middle;
 }
 
 .textcomplete-item .emoji {
@@ -1658,272 +2286,209 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 }
 
 /**
-  * Tooltips v0.5.3
-  * See http://primercss.io/tooltips/
-  */
-
-.tooltipped {
-	position: relative;
-}
-
-.tooltipped::after {
-	position: absolute;
-	z-index: 1000000;
-	display: none;
-	padding: 5px 8px;
-	font: 12px Lato;
-	line-height: 1.2;
-	-webkit-font-smoothing: subpixel-antialiased;
-	color: #fff;
-	text-align: center;
-	text-decoration: none;
-	text-shadow: none;
-	text-transform: none;
-	letter-spacing: normal;
-	word-wrap: break-word;
-	white-space: pre;
-	pointer-events: none;
-	content: attr(aria-label);
-	background: #222;
-	border-radius: 3px;
-	opacity: 0;
-}
-
-.tooltipped::before {
-	position: absolute;
-	z-index: 1000001;
-	display: none;
-	width: 0;
-	height: 0;
-	color: #fff;
-	pointer-events: none;
-	content: "";
-	border: 5px solid transparent;
-	opacity: 0;
-}
-
-@-webkit-keyframes tooltip-appear {
-	from {
-		opacity: 0;
-	}
-
-	to {
-		opacity: 1;
-	}
-}
-
-@keyframes tooltip-appear {
-	from {
-		opacity: 0;
-	}
-
-	to {
-		opacity: 1;
-	}
-}
-
-.tooltipped:hover::before,
-.tooltipped:hover::after,
-.tooltipped:active::before,
-.tooltipped:active::after,
-.tooltipped:focus::before,
-.tooltipped:focus::after {
-	display: inline-block;
-	text-decoration: none;
-	-webkit-animation-name: tooltip-appear;
-	animation-name: tooltip-appear;
-	-webkit-animation-duration: 0.1s;
-	animation-duration: 0.1s;
-	-webkit-animation-fill-mode: forwards;
-	animation-fill-mode: forwards;
-	-webkit-animation-timing-function: ease-in;
-	animation-timing-function: ease-in;
-	-webkit-animation-delay: 0.4s;
-	animation-delay: 0.4s;
-}
-
-.tooltipped-no-delay:hover::before,
-.tooltipped-no-delay:hover::after,
-.tooltipped-no-delay:active::before,
-.tooltipped-no-delay:active::after,
-.tooltipped-no-delay:focus::before,
-.tooltipped-no-delay:focus::after {
-	-webkit-animation-delay: 0s;
-	animation-delay: 0s;
-}
-
-.tooltipped-s::after,
-.tooltipped-se::after,
-.tooltipped-sw::after {
-	top: 100%;
-	right: 50%;
-	margin-top: 5px;
-}
-
-.tooltipped-s::before,
-.tooltipped-se::before,
-.tooltipped-sw::before {
-	top: auto;
-	right: 50%;
-	bottom: -5px;
-	margin-right: -5px;
-	border-bottom-color: #222;
-}
-
-.tooltipped-se::after {
-	right: auto;
-	left: 50%;
-	margin-left: -15px;
-}
-
-.tooltipped-sw::after {
-	margin-right: -15px;
-}
-
-.tooltipped-n::after,
-.tooltipped-ne::after,
-.tooltipped-nw::after {
-	right: 50%;
-	bottom: 100%;
-	margin-bottom: 5px;
-}
-
-.tooltipped-n::before,
-.tooltipped-ne::before,
-.tooltipped-nw::before {
-	top: -5px;
-	right: 50%;
-	bottom: auto;
-	margin-right: -5px;
-	border-top-color: #222;
-}
-
-.tooltipped-ne::after {
-	right: auto;
-	left: 50%;
-	margin-left: -15px;
-}
-
-.tooltipped-nw::after {
-	margin-right: -15px;
-}
-
-.tooltipped-s::after,
-.tooltipped-n::after {
-	-webkit-transform: translateX(50%);
-	transform: translateX(50%);
-}
-
-.tooltipped-w::after {
-	right: 100%;
-	bottom: 50%;
-	margin-right: 5px;
-	-webkit-transform: translateY(50%);
-	transform: translateY(50%);
-}
-
-.tooltipped-w::before {
-	top: 50%;
-	bottom: 50%;
-	left: -5px;
-	margin-top: -5px;
-	border-left-color: #222;
-}
-
-.tooltipped-e::after {
-	bottom: 50%;
-	left: 100%;
-	margin-left: 5px;
-	-webkit-transform: translateY(50%);
-	transform: translateY(50%);
-}
-
-.tooltipped-e::before {
-	top: 50%;
-	right: -5px;
-	bottom: 50%;
-	margin-top: -5px;
-	border-right-color: #222;
-}
-
-@media
-	only screen and (min-resolution: 192dpi),
-	only screen and (min-resolution: 2dppx) {
-	.tooltipped-w::after {
-		margin-right: 4.5px;
-	}
-}
-
-/* End tooltips */
-
-/**
   * IRC Message Styling
-  * https://github.com/megawac/irc-style-parser
   * Colours are credit to http://clrs.cc/
   */
 .irc-fg0 { color: #fff; }
-
 .irc-fg1 { color: #000; }
-
 .irc-fg2 { color: #001f3f; }
-
 .irc-fg3 { color: #2ecc40; }
-
 .irc-fg4 { color: #ff4136; }
-
 .irc-fg5 { color: #85144b; }
-
 .irc-fg6 { color: #b10dc9; }
-
 .irc-fg7 { color: #ff851b; }
-
 .irc-fg8 { color: #ffdc00; }
-
 .irc-fg9 { color: #01ff70; }
-
 .irc-fg10 { color: #39cccc; }
-
 .irc-fg11 { color: #7fdbff; }
-
 .irc-fg12 { color: #0074d9; }
-
 .irc-fg13 { color: #f012be; }
-
 .irc-fg14 { color: #aaa; }
-
 .irc-fg15 { color: #ddd; }
-
 .irc-bg0 { background: #fff; }
-
 .irc-bg1 { background: #000; }
-
 .irc-bg2 { background: #001f3f; }
-
 .irc-bg3 { background: #2ecc40; }
-
 .irc-bg4 { background: #ff4136; }
-
 .irc-bg5 { background: #85144b; }
-
 .irc-bg6 { background: #b10dc9; }
-
 .irc-bg7 { background: #ff851b; }
-
 .irc-bg8 { background: #ffdc00; }
-
 .irc-bg9 { background: #01ff70; }
-
 .irc-bg10 { background: #39cccc; }
-
 .irc-bg11 { background: #7fdbff; }
-
 .irc-bg12 { background: #0074d9; }
-
 .irc-bg13 { background: #f012be; }
-
 .irc-bg14 { background: #aaa; }
-
 .irc-bg15 { background: #ddd; }
+
+/* https://modern.ircdocs.horse/formatting.html#colors-16-98 */
+.irc-fg16 { color: #470000; }
+.irc-fg17 { color: #472100; }
+.irc-fg18 { color: #474700; }
+.irc-fg19 { color: #324700; }
+.irc-fg20 { color: #004700; }
+.irc-fg21 { color: #00472c; }
+.irc-fg22 { color: #004747; }
+.irc-fg23 { color: #002747; }
+.irc-fg24 { color: #000047; }
+.irc-fg25 { color: #2e0047; }
+.irc-fg26 { color: #470047; }
+.irc-fg27 { color: #47002a; }
+.irc-fg28 { color: #740000; }
+.irc-fg29 { color: #743a00; }
+.irc-fg30 { color: #747400; }
+.irc-fg31 { color: #517400; }
+.irc-fg32 { color: #007400; }
+.irc-fg33 { color: #007449; }
+.irc-fg34 { color: #007474; }
+.irc-fg35 { color: #004074; }
+.irc-fg36 { color: #000074; }
+.irc-fg37 { color: #4b0074; }
+.irc-fg38 { color: #740074; }
+.irc-fg39 { color: #740045; }
+.irc-fg40 { color: #b50000; }
+.irc-fg41 { color: #b56300; }
+.irc-fg42 { color: #b5b500; }
+.irc-fg43 { color: #7db500; }
+.irc-fg44 { color: #00b500; }
+.irc-fg45 { color: #00b571; }
+.irc-fg46 { color: #00b5b5; }
+.irc-fg47 { color: #0063b5; }
+.irc-fg48 { color: #0000b5; }
+.irc-fg49 { color: #7500b5; }
+.irc-fg50 { color: #b500b5; }
+.irc-fg51 { color: #b5006b; }
+.irc-fg52 { color: #f00; }
+.irc-fg53 { color: #ff8c00; }
+.irc-fg54 { color: #ff0; }
+.irc-fg55 { color: #b2ff00; }
+.irc-fg56 { color: #0f0; }
+.irc-fg57 { color: #00ffa0; }
+.irc-fg58 { color: #0ff; }
+.irc-fg59 { color: #008cff; }
+.irc-fg60 { color: #00f; }
+.irc-fg61 { color: #a500ff; }
+.irc-fg62 { color: #f0f; }
+.irc-fg63 { color: #ff0098; }
+.irc-fg64 { color: #ff5959; }
+.irc-fg65 { color: #ffb459; }
+.irc-fg66 { color: #ffff71; }
+.irc-fg67 { color: #cfff60; }
+.irc-fg68 { color: #6fff6f; }
+.irc-fg69 { color: #65ffc9; }
+.irc-fg70 { color: #6dffff; }
+.irc-fg71 { color: #59b4ff; }
+.irc-fg72 { color: #5959ff; }
+.irc-fg73 { color: #c459ff; }
+.irc-fg74 { color: #f6f; }
+.irc-fg75 { color: #ff59bc; }
+.irc-fg76 { color: #ff9c9c; }
+.irc-fg77 { color: #ffd39c; }
+.irc-fg78 { color: #ffff9c; }
+.irc-fg79 { color: #e2ff9c; }
+.irc-fg80 { color: #9cff9c; }
+.irc-fg81 { color: #9cffdb; }
+.irc-fg82 { color: #9cffff; }
+.irc-fg83 { color: #9cd3ff; }
+.irc-fg84 { color: #9c9cff; }
+.irc-fg85 { color: #dc9cff; }
+.irc-fg86 { color: #ff9cff; }
+.irc-fg87 { color: #ff94d3; }
+.irc-fg88 { color: #000; }
+.irc-fg89 { color: #131313; }
+.irc-fg90 { color: #282828; }
+.irc-fg91 { color: #363636; }
+.irc-fg92 { color: #4d4d4d; }
+.irc-fg93 { color: #656565; }
+.irc-fg94 { color: #818181; }
+.irc-fg95 { color: #9f9f9f; }
+.irc-fg96 { color: #bcbcbc; }
+.irc-fg97 { color: #e2e2e2; }
+.irc-fg98 { color: #fff; }
+.irc-bg16 { background-color: #470000; }
+.irc-bg17 { background-color: #472100; }
+.irc-bg18 { background-color: #474700; }
+.irc-bg19 { background-color: #324700; }
+.irc-bg20 { background-color: #004700; }
+.irc-bg21 { background-color: #00472c; }
+.irc-bg22 { background-color: #004747; }
+.irc-bg23 { background-color: #002747; }
+.irc-bg24 { background-color: #000047; }
+.irc-bg25 { background-color: #2e0047; }
+.irc-bg26 { background-color: #470047; }
+.irc-bg27 { background-color: #47002a; }
+.irc-bg28 { background-color: #740000; }
+.irc-bg29 { background-color: #743a00; }
+.irc-bg30 { background-color: #747400; }
+.irc-bg31 { background-color: #517400; }
+.irc-bg32 { background-color: #007400; }
+.irc-bg33 { background-color: #007449; }
+.irc-bg34 { background-color: #007474; }
+.irc-bg35 { background-color: #004074; }
+.irc-bg36 { background-color: #000074; }
+.irc-bg37 { background-color: #4b0074; }
+.irc-bg38 { background-color: #740074; }
+.irc-bg39 { background-color: #740045; }
+.irc-bg40 { background-color: #b50000; }
+.irc-bg41 { background-color: #b56300; }
+.irc-bg42 { background-color: #b5b500; }
+.irc-bg43 { background-color: #7db500; }
+.irc-bg44 { background-color: #00b500; }
+.irc-bg45 { background-color: #00b571; }
+.irc-bg46 { background-color: #00b5b5; }
+.irc-bg47 { background-color: #0063b5; }
+.irc-bg48 { background-color: #0000b5; }
+.irc-bg49 { background-color: #7500b5; }
+.irc-bg50 { background-color: #b500b5; }
+.irc-bg51 { background-color: #b5006b; }
+.irc-bg52 { background-color: #f00; }
+.irc-bg53 { background-color: #ff8c00; }
+.irc-bg54 { background-color: #ff0; }
+.irc-bg55 { background-color: #b2ff00; }
+.irc-bg56 { background-color: #0f0; }
+.irc-bg57 { background-color: #00ffa0; }
+.irc-bg58 { background-color: #0ff; }
+.irc-bg59 { background-color: #008cff; }
+.irc-bg60 { background-color: #00f; }
+.irc-bg61 { background-color: #a500ff; }
+.irc-bg62 { background-color: #f0f; }
+.irc-bg63 { background-color: #ff0098; }
+.irc-bg64 { background-color: #ff5959; }
+.irc-bg65 { background-color: #ffb459; }
+.irc-bg66 { background-color: #ffff71; }
+.irc-bg67 { background-color: #cfff60; }
+.irc-bg68 { background-color: #6fff6f; }
+.irc-bg69 { background-color: #65ffc9; }
+.irc-bg70 { background-color: #6dffff; }
+.irc-bg71 { background-color: #59b4ff; }
+.irc-bg72 { background-color: #5959ff; }
+.irc-bg73 { background-color: #c459ff; }
+.irc-bg74 { background-color: #f6f; }
+.irc-bg75 { background-color: #ff59bc; }
+.irc-bg76 { background-color: #ff9c9c; }
+.irc-bg77 { background-color: #ffd39c; }
+.irc-bg78 { background-color: #ffff9c; }
+.irc-bg79 { background-color: #e2ff9c; }
+.irc-bg80 { background-color: #9cff9c; }
+.irc-bg81 { background-color: #9cffdb; }
+.irc-bg82 { background-color: #9cffff; }
+.irc-bg83 { background-color: #9cd3ff; }
+.irc-bg84 { background-color: #9c9cff; }
+.irc-bg85 { background-color: #dc9cff; }
+.irc-bg86 { background-color: #ff9cff; }
+.irc-bg87 { background-color: #ff94d3; }
+.irc-bg88 { background-color: #000; }
+.irc-bg89 { background-color: #131313; }
+.irc-bg90 { background-color: #282828; }
+.irc-bg91 { background-color: #363636; }
+.irc-bg92 { background-color: #4d4d4d; }
+.irc-bg93 { background-color: #656565; }
+.irc-bg94 { background-color: #818181; }
+.irc-bg95 { background-color: #9f9f9f; }
+.irc-bg96 { background-color: #bcbcbc; }
+.irc-bg97 { background-color: #e2e2e2; }
+.irc-bg98 { background-color: #fff; }
 
 .irc-bold {
 	font-weight: bold;
@@ -1933,28 +2498,28 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	text-decoration: underline;
 }
 
+.irc-strikethrough {
+	text-decoration: line-through;
+}
+
+.irc-underline.irc-strikethrough {
+	text-decoration: underline line-through;
+}
+
 .irc-italic {
 	font-style: italic;
 }
 
+.tooltipped::after {
+	font-size: 12px;
+}
+
 @media (min-width: 480px) {
 	/* Fade out for long usernames */
-
 	#chat .from {
 		padding-left: 10px;
+		mask-image: linear-gradient(to left, transparent, black 10px);
 	}
-
-	#chat .from::after {
-		position: absolute;
-		right: 0;
-		bottom: 0;
-		width: 10px;
-		height: 100%;
-		background: linear-gradient(to right, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 1) 100%);
-		content: " ";
-	}
-
-	/* End fade out for long usernames */
 }
 
 @media (max-width: 768px) {
@@ -1972,81 +2537,137 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 		opacity: 0;
 	}
 
-	.container {
-		margin-top: 60px !important;
+	#sidebar .logo-container {
+		margin-top: 5px;
 	}
 
-	#sidebar,
-	#footer {
+	.channel-list-item,
+	#sidebar .empty,
+	.window label,
+	.header .topic,
+	#settings .error,
+	#help .help-item,
+	#loading,
+	#context-menu,
+	#form #input,
+	.textcomplete-menu,
+	.messages .msg {
+		font-size: 15px;
+	}
+
+	#sidebar {
+		display: flex;
+		background: var(--body-bg-color);
+		height: 100%;
+		position: absolute;
 		left: -220px;
+		z-index: 10;
+		transition: transform 160ms;
+		transform: translateZ(0);
 	}
 
-	#sidebar .empty::before {
-		margin-top: 0;
-	}
-
-	#main {
+	#sidebar-overlay {
+		position: fixed;
+		top: 0;
+		bottom: 0;
 		left: 0;
-	}
-
-	#chat .chat {
 		right: 0;
+		background: var(--overlay-bg-color);
+		opacity: 0;
+		visibility: hidden;
+		transition: opacity 160ms, visibility 160ms;
+		z-index: 9;
 	}
 
-	#viewport .lt,
-	#viewport .channel .rt {
-		display: block;
+	#viewport.menu-open #sidebar-overlay {
+		opacity: 1;
 	}
 
-	#windows .window .header {
-		display: block;
+	#viewport.menu-open #sidebar {
+		transform: translate3d(220px, 0, 0);
 	}
 
-	#chat .channel .chat {
+	#viewport.menu-dragging #sidebar-overlay,
+	#viewport.menu-dragging #sidebar {
+		transition: none;
+	}
+
+	#viewport.menu-open #sidebar,
+	#viewport.menu-dragging #sidebar {
+		box-shadow: 0 0 25px 0 rgba(0, 0, 0, 0.5);
+	}
+
+	#viewport.menu-open #sidebar-overlay,
+	#viewport.menu-dragging #sidebar-overlay {
+		visibility: visible;
+	}
+
+	/* On mobile display, channel list button stays at the top */
+	#viewport .lt {
+		position: relative;
+	}
+
+	#chat .userlist {
+		background-color: var(--window-bg-color);
+		height: 100%;
+		position: absolute;
 		right: 0;
+		transform: translateX(180px);
+		transition: transform 0.2s;
 	}
 
-	#chat .sidebar {
-		right: -180px;
+	#viewport.userlist-open #chat .userlist {
+		transform: translateX(0);
 	}
 
-	#viewport.rt #chat .sidebar {
-		right: 0;
+	#chat .header .title {
+		padding-left: 6px;
 	}
 
-	#chat .title::before {
-		display: none;
-	}
-}
-
-@media (min-width: 1610px) {
-	#windows .header .topic,
-	.messages .msg,
-	.sidebar {
-		font-size: 14px;
+	#chat .toggle-content .thumb {
+		max-height: 58px;
+		max-width: 104px;
 	}
 }
 
 @media (max-width: 479px) {
 	.container {
-		margin: 40px 0 !important;
+		max-width: 100%;
+		margin: 0;
 	}
 
-	#connect .tls {
-		margin: 20px 0;
+	#sign-in .btn {
+		width: 100%;
 	}
 
-	#windows .input {
+	.input {
 		margin-bottom: 2px;
+	}
+
+	#connect .connect-row {
+		flex-direction: column;
+	}
+
+	#connect .connect-row > .input,
+	#connect .connect-row > .input-wrap {
+		flex-grow: 1;
+	}
+
+	#help .help-version-title {
+		flex-direction: column;
 	}
 
 	#chat .messages {
 		display: block;
-		padding: 5px 10px;
+		padding: 5px 0;
 	}
 
 	#chat .msg {
 		display: block;
+		padding: 2px 10px;
+	}
+
+	#chat .msg[data-type="condensed"] .msg {
 		padding: 2px 0;
 	}
 
@@ -2058,14 +2679,23 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 		padding: 0;
 	}
 
-	#chat .condensed .time,
-	#chat .condensed .from {
-		display: none;
+	#chat .from::after {
+		/* Add a space because mobile view changes to block display without paddings */
+		content: " ";
+		white-space: pre;
 	}
 
-	#chat .date-marker,
-	#chat .unread-marker {
-		margin: 0;
+	#chat .chat-view[data-type="channel"] .msg.highlight {
+		padding-left: 5px;
+	}
+
+	#chat .chat-view[data-type="channel"] .msg.highlight .time {
+		padding-left: 0;
+	}
+
+	#chat .condensed-summary .time,
+	#chat .condensed-summary .from {
+		display: none;
 	}
 
 	#help .help-item .subject {
@@ -2096,9 +2726,12 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	background: rgba(0, 0, 0, 0.6);
 }
 
-/* Image viewer */
+/* Image viewer and drag-and-drop overlay */
 
+#confirm-dialog-overlay,
+#upload-overlay,
 #image-viewer,
+#image-viewer .open-btn,
 #image-viewer .close-btn {
 	/* Vertically and horizontally center stuff */
 	display: flex;
@@ -2107,25 +2740,36 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	justify-content: center;
 }
 
+#confirm-dialog-overlay,
+#upload-overlay,
 #image-viewer {
 	position: fixed;
 	top: 0;
 	bottom: 0;
 	left: 0;
 	right: 0;
-	background: black;
+	background: var(--overlay-bg-color);
 	visibility: hidden;
 	opacity: 0;
 	transition: opacity 0.2s, visibility 0.2s;
 	z-index: 999;
+	user-select: none;
 }
 
+#confirm-dialog-overlay.opened,
+#upload-overlay.is-dragover,
 #image-viewer.opened {
 	visibility: visible;
 	opacity: 1;
 }
 
+#confirm-dialog-overlay,
+#image-viewer {
+	background: rgba(0, 0, 0, 0.9);
+}
+
 #image-viewer .close-btn,
+#image-viewer .open-btn,
 #image-viewer .previous-image-btn,
 #image-viewer .next-image-btn {
 	position: fixed;
@@ -2145,6 +2789,14 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 
 #image-viewer .close-btn::before {
 	content: "×";
+}
+
+#image-viewer .open-btn {
+	right: 0;
+	bottom: 0;
+	top: auto;
+	height: 2em;
+	z-index: 1002;
 }
 
 #image-viewer .previous-image-btn,
@@ -2167,37 +2819,31 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	opacity: 1;
 }
 
-#image-viewer .image-link {
-	margin: 10px;
-}
+#image-viewer > img {
+	cursor: grab;
+	position: absolute;
+	transform-origin: 50% 50%;
 
-#image-viewer .image-link:hover {
-	opacity: 1;
-}
-
-#image-viewer .image-link img {
-	max-width: 100%;
-
-	/* Top/Bottom margins + button height + image/button margin */
-	max-height: calc(100vh - 2 * 10px - 37px - 10px);
-}
-
-#image-viewer .open-btn {
-	margin: 0 auto 10px;
+	/* Checkered background for transparent images */
+	background-position: 0 0, 10px 10px;
+	background-size: 20px 20px;
+	background-image:
+		linear-gradient(45deg, #eee 25%, rgba(0, 0, 0, 0) 25%, rgba(0, 0, 0, 0) 75%, #eee 75%, #eee 100%),
+		linear-gradient(45deg, #eee 25%, #fff 25%, #fff 75%, #eee 75%, #eee 100%);
 }
 
 /* Correctly handle multiple successive whitespace characters.
    For example: user has quit ( ===> L   O   L <=== )  */
 
-#windows .header .topic,
-#chat .message .text,
-#chat .motd .text,
-#chat .notice .text,
+.header .topic,
+#chat .msg[data-type="action"] .content,
+#chat .msg[data-type="message"] .content,
+#chat .msg[data-type="monospace_block"] .content,
+#chat .msg[data-type="notice"] .content,
 #chat .ctcp-message,
 #chat .part-reason,
 #chat .quit-reason,
 #chat .new-topic,
-#chat .action .text,
 #chat table.channel-list .topic {
 	white-space: pre-wrap;
 }

@@ -1,18 +1,28 @@
 "use strict";
 
-var _ = require("lodash");
-
-var id = 0;
+const _ = require("lodash");
 
 class Msg {
 	constructor(attr) {
+		// Some properties need to be copied in the Msg object instead of referenced
+		if (attr) {
+			["from", "target"].forEach((prop) => {
+				if (attr[prop]) {
+					this[prop] = {
+						mode: attr[prop].mode,
+						nick: attr[prop].nick,
+					};
+				}
+			});
+		}
+
 		_.defaults(this, attr, {
-			from: "",
-			id: id++,
+			from: {},
+			id: 0,
 			previews: [],
 			text: "",
 			type: Msg.Type.MESSAGE,
-			self: false
+			self: false,
 		});
 
 		if (this.time > 0) {
@@ -25,27 +35,50 @@ class Msg {
 	findPreview(link) {
 		return this.previews.find((preview) => preview.link === link);
 	}
+
+	isLoggable() {
+		if (this.type === Msg.Type.TOPIC) {
+			// Do not log topic that is sent on channel join
+			return !!this.from.nick;
+		}
+
+		return (
+			this.type !== Msg.Type.MONOSPACE_BLOCK &&
+			this.type !== Msg.Type.ERROR &&
+			this.type !== Msg.Type.TOPIC_SET_BY &&
+			this.type !== Msg.Type.MODE_CHANNEL &&
+			this.type !== Msg.Type.RAW &&
+			this.type !== Msg.Type.WHOIS &&
+			this.type !== Msg.Type.PLUGIN
+		);
+	}
 }
 
 Msg.Type = {
 	UNHANDLED: "unhandled",
+	AWAY: "away",
 	ACTION: "action",
+	BACK: "back",
 	ERROR: "error",
 	INVITE: "invite",
 	JOIN: "join",
 	KICK: "kick",
 	MESSAGE: "message",
 	MODE: "mode",
-	MOTD: "motd",
+	MODE_CHANNEL: "mode_channel",
+	MONOSPACE_BLOCK: "monospace_block",
 	NICK: "nick",
 	NOTICE: "notice",
 	PART: "part",
 	QUIT: "quit",
 	CTCP: "ctcp",
+	CTCP_REQUEST: "ctcp_request",
+	CHGHOST: "chghost",
 	TOPIC: "topic",
 	TOPIC_SET_BY: "topic_set_by",
 	WHOIS: "whois",
-	BANLIST: "ban_list"
+	RAW: "raw",
+	PLUGIN: "plugin",
 };
 
 module.exports = Msg;

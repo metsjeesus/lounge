@@ -1,64 +1,109 @@
 "use strict";
 
-var _ = require("lodash");
-var pkg = require("../package.json");
-var Client = require("./client");
-var ClientManager = require("./clientManager");
-var express = require("express");
-var expressHandlebars = require("express-handlebars");
-var fs = require("fs");
-var path = require("path");
-var io = require("socket.io");
-var dns = require("dns");
-var Helper = require("./helper");
-var ldap = require("ldapjs");
-var colors = require("colors/safe");
+const _ = require("lodash");
+const log = require("./log");
+const pkg = require("../package.json");
+const Client = require("./client");
+const ClientManager = require("./clientManager");
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
+const io = require("socket.io");
+const dns = require("dns");
+const Uploader = require("./plugins/uploader");
+const Helper = require("./helper");
+const colors = require("chalk");
 const net = require("net");
 const Identification = require("./identification");
+const changelog = require("./plugins/changelog");
+const inputs = require("./plugins/inputs");
+const Auth = require("./plugins/auth");
 
-var manager = null;
+const themes = require("./plugins/packages/themes");
+themes.loadLocalThemes();
 
-module.exports = function() {
+const packages = require("./plugins/packages/index");
+
+// A random number that will force clients to reload the page if it differs
+const serverHash = Math.floor(Date.now() * Math.random());
+
+let manager = null;
+
+module.exports = function (options = {}) {
 	log.info(`The Lounge ${colors.green(Helper.getVersion())} \
-(node ${colors.green(process.versions.node)} on ${colors.green(process.platform)} ${process.arch})`);
-	log.info(`Configuration file: ${colors.green(Helper.CONFIG_PATH)}`);
+(Node.js ${colors.green(process.versions.node)} on ${colors.green(process.platform)} ${
+		process.arch
+	})`);
+	log.info(`Configuration file: ${colors.green(Helper.getConfigPath())}`);
 
-	if (!fs.existsSync("client/js/bundle.js")) {
-		log.error(`The client application was not built. Run ${colors.bold("NODE_ENV=production npm run build")} to resolve this.`);
-		process.exit();
+	const staticOptions = {
+		redirect: false,
+		maxAge: 86400 * 1000,
+	};
+
+	const app = express();
+
+	if (options.dev) {
+		require("./plugins/dev-server.js")(app);
 	}
 
-	var app = express()
+	app.set("env", "production")
+		.disable("x-powered-by")
 		.use(allRequests)
-		.use(index)
-		.use(express.static("client"))
-		.use("/storage/", express.static(Helper.getStoragePath(), {
-			redirect: false,
-			maxAge: 86400 * 1000,
-		}))
-		.engine("html", expressHandlebars({
-			extname: ".html",
-			helpers: {
-				tojson: (c) => JSON.stringify(c)
-			}
-		}))
-		.set("view engine", "html")
-		.set("views", path.join(__dirname, "..", "client"));
+		.get("/", indexRequest)
+		.get("/service-worker.js", forceNoCacheRequest)
+		.get("/js/bundle.js.map", forceNoCacheRequest)
+		.get("/css/style.css.map", forceNoCacheRequest)
+		.use(express.static(path.join(__dirname, "..", "public"), staticOptions))
+		.use("/storage/", express.static(Helper.getStoragePath(), staticOptions));
 
-	var config = Helper.config;
-	var server = null;
-
-	if (config.public && (config.ldap || {}).enable) {
-		log.warn("Server is public and set to use LDAP. Set to private mode if trying to use LDAP authentication.");
+	if (Helper.config.fileUpload.enable) {
+		Uploader.router(app);
 	}
 
-	if (!config.https.enable) {
+	// This route serves *installed themes only*. Local themes are served directly
+	// from the `public/themes/` folder as static assets, without entering this
+	// handler. Remember this if you make changes to this function, serving of
+	// local themes will not get those changes.
+	app.get("/themes/:theme.css", (req, res) => {
+		const themeName = req.params.theme;
+		const theme = themes.getByName(themeName);
+
+		if (theme === undefined) {
+			return res.status(404).send("Not found");
+		}
+
+		return res.sendFile(theme.filename);
+	});
+
+	app.get("/packages/:package/:filename", (req, res) => {
+		const packageName = req.params.package;
+		const fileName = req.params.filename;
+		const packageFile = packages.getPackage(packageName);
+
+		if (!packageFile || !packages.getFiles().includes(`${packageName}/${fileName}`)) {
+			return res.status(404).send("Not found");
+		}
+
+		const packagePath = Helper.getPackageModulePath(packageName);
+		return res.sendFile(path.join(packagePath, fileName));
+	});
+
+	let server = null;
+
+	if (Helper.config.public && (Helper.config.ldap || {}).enable) {
+		log.warn(
+			"Server is public and set to use LDAP. Set to private mode if trying to use LDAP authentication."
+		);
+	}
+
+	if (!Helper.config.https.enable) {
 		server = require("http");
 		server = server.createServer(app);
 	} else {
-		const keyPath = Helper.expandHome(config.https.key);
-		const certPath = Helper.expandHome(config.https.certificate);
-		const caPath = Helper.expandHome(config.https.ca);
+		const keyPath = Helper.expandHome(Helper.config.https.key);
+		const certPath = Helper.expandHome(Helper.config.https.certificate);
+		const caPath = Helper.expandHome(Helper.config.https.ca);
 
 		if (!keyPath.length || !fs.existsSync(keyPath)) {
 			log.error("Path to SSL key is invalid. Stopping server...");
@@ -75,54 +120,81 @@ module.exports = function() {
 			process.exit();
 		}
 
-		server = require("spdy");
-		server = server.createServer({
-			key: fs.readFileSync(keyPath),
-			cert: fs.readFileSync(certPath),
-			ca: caPath ? fs.readFileSync(caPath) : undefined
-		}, app);
+		server = require("https");
+		server = server.createServer(
+			{
+				key: fs.readFileSync(keyPath),
+				cert: fs.readFileSync(certPath),
+				ca: caPath ? fs.readFileSync(caPath) : undefined,
+			},
+			app
+		);
 	}
 
 	let listenParams;
 
-	if (typeof config.host === "string" && config.host.startsWith("unix:")) {
-		listenParams = config.host.replace(/^unix:/, "");
+	if (typeof Helper.config.host === "string" && Helper.config.host.startsWith("unix:")) {
+		listenParams = Helper.config.host.replace(/^unix:/, "");
 	} else {
 		listenParams = {
-			port: config.port,
-			host: config.host,
+			port: Helper.config.port,
+			host: Helper.config.host,
 		};
 	}
+
+	server.on("error", (err) => log.error(`${err}`));
 
 	server.listen(listenParams, () => {
 		if (typeof listenParams === "string") {
 			log.info("Available on socket " + colors.green(listenParams));
 		} else {
-			const protocol = config.https.enable ? "https" : "http";
+			const protocol = Helper.config.https.enable ? "https" : "http";
 			const address = server.address();
+
+			if (address.family === "IPv6") {
+				address.address = "[" + address.address + "]";
+			}
 
 			log.info(
 				"Available at " +
-				colors.green(`${protocol}://${address.address}:${address.port}/`) +
-				` in ${colors.bold(config.public ? "public" : "private")} mode`
+					colors.green(`${protocol}://${address.address}:${address.port}/`) +
+					` in ${colors.bold(Helper.config.public ? "public" : "private")} mode`
 			);
 		}
 
 		const sockets = io(server, {
+			wsEngine: "ws",
+			cookie: false,
 			serveClient: false,
-			transports: config.transports
+			transports: Helper.config.transports,
 		});
 
 		sockets.on("connect", (socket) => {
-			if (config.public) {
+			socket.on("error", (err) => log.error(`io socket error: ${err}`));
+
+			if (Helper.config.public) {
 				performAuthentication.call(socket, {});
 			} else {
-				socket.emit("auth", {success: true});
-				socket.on("auth", performAuthentication);
+				socket.on("auth:perform", performAuthentication);
+				socket.emit("auth:start", serverHash);
 			}
 		});
 
 		manager = new ClientManager();
+		packages.loadPackages();
+
+		const defaultTheme = themes.getByName(Helper.config.theme);
+
+		if (defaultTheme === undefined) {
+			log.warn(
+				`The specified default theme "${colors.red(
+					Helper.config.theme
+				)}" does not exist, verify your config.`
+			);
+			Helper.config.theme = "default";
+		} else if (defaultTheme.themeColor) {
+			Helper.config.themeColor = defaultTheme.themeColor;
+		}
 
 		new Identification((identHandler) => {
 			manager.init(identHandler, sockets);
@@ -130,18 +202,25 @@ module.exports = function() {
 
 		// Handle ctrl+c and kill gracefully
 		let suicideTimeout = null;
-		const exitGracefully = function() {
+
+		const exitGracefully = function () {
 			if (suicideTimeout !== null) {
 				return;
 			}
-
-			// Forcefully exit after 3 seconds
-			suicideTimeout = setTimeout(() => process.exit(1), 3000);
 
 			log.info("Exiting...");
 
 			// Close all client and IRC connections
 			manager.clients.forEach((client) => client.quit());
+
+			if (Helper.config.prefetchStorage) {
+				log.info("Clearing prefetch storage folder, this might take a while...");
+
+				require("./plugins/storage").emptyDir();
+			}
+
+			// Forcefully exit after 3 seconds
+			suicideTimeout = setTimeout(() => process.exit(1), 3000);
 
 			// Close http server
 			server.close(() => {
@@ -152,14 +231,36 @@ module.exports = function() {
 
 		process.on("SIGINT", exitGracefully);
 		process.on("SIGTERM", exitGracefully);
+
+		// Clear storage folder after server starts successfully
+		if (Helper.config.prefetchStorage) {
+			require("./plugins/storage").emptyDir();
+		}
+
+		changelog.checkForUpdates(manager);
 	});
+
+	return server;
 };
 
-function getClientIp(request) {
-	let ip = request.connection.remoteAddress;
+function getClientLanguage(socket) {
+	const acceptLanguage = socket.handshake.headers["accept-language"];
+
+	if (typeof acceptLanguage === "string" && /^[\x00-\x7F]{1,50}$/.test(acceptLanguage)) {
+		// only allow ASCII strings between 1-50 characters in length
+		return acceptLanguage;
+	}
+
+	return null;
+}
+
+function getClientIp(socket) {
+	let ip = socket.handshake.address || "127.0.0.1";
 
 	if (Helper.config.reverseProxy) {
-		const forwarded = (request.headers["x-forwarded-for"] || "").split(/\s*,\s*/).filter(Boolean);
+		const forwarded = (socket.handshake.headers["x-forwarded-for"] || "")
+			.split(/\s*,\s*/)
+			.filter(Boolean);
 
 		if (forwarded.length && net.isIP(forwarded[0])) {
 			ip = forwarded[0];
@@ -169,101 +270,170 @@ function getClientIp(request) {
 	return ip.replace(/^::ffff:/, "");
 }
 
+function getClientSecure(socket) {
+	let secure = socket.handshake.secure;
+
+	if (Helper.config.reverseProxy && socket.handshake.headers["x-forwarded-proto"] === "https") {
+		secure = true;
+	}
+
+	return secure;
+}
+
 function allRequests(req, res, next) {
 	res.setHeader("X-Content-Type-Options", "nosniff");
 	return next();
 }
 
-function index(req, res, next) {
-	if (req.url.split("?")[0] !== "/") {
-		return next();
-	}
+function forceNoCacheRequest(req, res, next) {
+	// Intermittent proxies must not cache the following requests,
+	// browsers must fetch the latest version of these files (service worker, source maps)
+	res.setHeader("Cache-Control", "no-cache, no-transform");
+	return next();
+}
 
-	var data = _.merge(
-		pkg,
-		Helper.config
-	);
-	data.gitCommit = Helper.getGitCommit();
-	data.themes = fs.readdirSync("client/themes/").filter(function(themeFile) {
-		return themeFile.endsWith(".css");
-	}).map(function(css) {
-		const filename = css.slice(0, -4);
-		return {
-			name: filename.charAt(0).toUpperCase() + filename.slice(1),
-			filename: filename
-		};
-	});
-
+function indexRequest(req, res) {
 	const policies = [
-		"default-src *",
-		"connect-src 'self' ws: wss:",
-		"style-src * 'unsafe-inline'",
-		"script-src 'self'",
-		"child-src 'self'",
-		"object-src 'none'",
-		"form-action 'none'",
+		"default-src 'none'", // default to nothing
+		"base-uri 'none'", // disallow <base>, has no fallback to default-src
+		"form-action 'self'", // 'self' to fix saving passwords in Firefox, even though login is handled in javascript
+		"connect-src 'self' ws: wss:", // allow self for polling; websockets
+		"style-src 'self' https: 'unsafe-inline'", // allow inline due to use in irc hex colors
+		"script-src 'self'", // javascript
+		"worker-src 'self'", // service worker
+		"manifest-src 'self'", // manifest.json
+		"font-src 'self' https:", // allow loading fonts from secure sites (e.g. google fonts)
+		"media-src 'self' https:", // self for notification sound; allow https media (audio previews)
 	];
 
 	// If prefetch is enabled, but storage is not, we have to allow mixed content
+	// - https://user-images.githubusercontent.com is where we currently push our changelog screenshots
+	// - data: is required for the HTML5 video player
 	if (Helper.config.prefetchStorage || !Helper.config.prefetch) {
-		policies.push("img-src 'self'");
+		policies.push("img-src 'self' data: https://user-images.githubusercontent.com");
 		policies.unshift("block-all-mixed-content");
+	} else {
+		policies.push("img-src http: https: data:");
 	}
 
+	res.setHeader("Content-Type", "text/html");
 	res.setHeader("Content-Security-Policy", policies.join("; "));
 	res.setHeader("Referrer-Policy", "no-referrer");
-	res.render("index", data);
+
+	return fs.readFile(
+		path.join(__dirname, "..", "client", "index.html.tpl"),
+		"utf-8",
+		(err, file) => {
+			if (err) {
+				throw err;
+			}
+
+			const config = getServerConfiguration();
+			config.cacheBust = Helper.getVersionCacheBust();
+
+			res.send(_.template(file)(config));
+		}
+	);
 }
 
-function initializeClient(socket, client, token) {
-	socket.emit("authorized");
+function initializeClient(socket, client, token, lastMessage, openChannel) {
+	socket.off("auth:perform", performAuthentication);
+	socket.emit("auth:success");
 
-	socket.on("disconnect", function() {
-		client.clientDetach(socket.id);
-	});
 	client.clientAttach(socket.id, token);
 
-	socket.on(
-		"input",
-		function(data) {
+	// Client sends currently active channel on reconnect,
+	// pass it into `open` directly so it is verified and updated if necessary
+	if (openChannel) {
+		client.open(socket.id, openChannel);
+
+		// If client provided channel passes checks, use it. if client has invalid
+		// channel open (or windows like settings) then use last known server active channel
+		openChannel = client.attachedClients[socket.id].openChannel || client.lastActiveChannel;
+	} else {
+		openChannel = client.lastActiveChannel;
+	}
+
+	if (Helper.config.fileUpload.enable) {
+		new Uploader(socket);
+	}
+
+	socket.on("disconnect", function () {
+		process.nextTick(() => client.clientDetach(socket.id));
+	});
+
+	socket.on("input", (data) => {
+		if (_.isPlainObject(data)) {
 			client.input(data);
 		}
-	);
+	});
 
-	socket.on(
-		"more",
-		function(data) {
-			client.more(data);
+	socket.on("more", (data) => {
+		if (_.isPlainObject(data)) {
+			const history = client.more(data);
+
+			if (history !== null) {
+				socket.emit("more", history);
+			}
 		}
-	);
+	});
 
-	socket.on(
-		"conn",
-		function(data) {
+	socket.on("network:new", (data) => {
+		if (_.isPlainObject(data)) {
 			// prevent people from overriding webirc settings
-			data.ip = null;
-			data.hostname = null;
+			data.uuid = null;
+			data.commands = null;
+			data.ignoreList = null;
 
 			client.connect(data);
 		}
-	);
+	});
+
+	socket.on("network:get", (data) => {
+		if (typeof data !== "string") {
+			return;
+		}
+
+		const network = _.find(client.networks, {uuid: data});
+
+		if (!network) {
+			return;
+		}
+
+		socket.emit("network:info", network.exportForEdit());
+	});
+
+	socket.on("network:edit", (data) => {
+		if (!_.isPlainObject(data)) {
+			return;
+		}
+
+		const network = _.find(client.networks, {uuid: data.uuid});
+
+		if (!network) {
+			return;
+		}
+
+		network.edit(client, data);
+	});
+
+	socket.on("history:clear", (data) => {
+		if (_.isPlainObject(data)) {
+			client.clearHistory(data);
+		}
+	});
 
 	if (!Helper.config.public && !Helper.config.ldap.enable) {
-		socket.on(
-			"change-password",
-			function(data) {
-				var old = data.old_password;
-				var p1 = data.new_password;
-				var p2 = data.verify_password;
-				if (typeof p1 === "undefined" || p1 === "") {
+		socket.on("change-password", (data) => {
+			if (_.isPlainObject(data)) {
+				const old = data.old_password;
+				const p1 = data.new_password;
+				const p2 = data.verify_password;
+
+				if (typeof p1 === "undefined" || p1 === "" || p1 !== p2) {
 					socket.emit("change-password", {
-						error: "Please enter a new password"
-					});
-					return;
-				}
-				if (p1 !== p2) {
-					socket.emit("change-password", {
-						error: "Both new password fields must match"
+						error: "",
+						success: false,
 					});
 					return;
 				}
@@ -273,54 +443,80 @@ function initializeClient(socket, client, token) {
 					.then((matching) => {
 						if (!matching) {
 							socket.emit("change-password", {
-								error: "The current password field does not match your account password"
+								error: "password_incorrect",
+								success: false,
 							});
 							return;
 						}
+
 						const hash = Helper.password.hash(p1);
 
 						client.setPassword(hash, (success) => {
-							const obj = {};
+							const obj = {success: false};
 
 							if (success) {
-								obj.success = "Successfully updated your password";
+								obj.success = true;
 							} else {
-								obj.error = "Failed to update your password";
+								obj.error = "update_failed";
 							}
 
 							socket.emit("change-password", obj);
 						});
-					}).catch((error) => {
+					})
+					.catch((error) => {
 						log.error(`Error while checking users password. Error: ${error}`);
 					});
 			}
-		);
+		});
 	}
 
-	socket.on(
-		"open",
-		function(data) {
-			client.open(socket.id, data);
-		}
-	);
+	socket.on("open", (data) => {
+		client.open(socket.id, data);
+	});
 
-	socket.on(
-		"sort",
-		function(data) {
+	socket.on("sort", (data) => {
+		if (_.isPlainObject(data)) {
 			client.sort(data);
 		}
-	);
+	});
 
-	socket.on(
-		"names",
-		function(data) {
+	socket.on("names", (data) => {
+		if (_.isPlainObject(data)) {
 			client.names(data);
 		}
-	);
+	});
 
-	socket.on("msg:preview:toggle", function(data) {
+	socket.on("changelog", () => {
+		Promise.all([changelog.fetch(), packages.outdated()]).then(
+			([changelogData, packageUpdate]) => {
+				changelogData.packages = packageUpdate;
+				socket.emit("changelog", changelogData);
+			}
+		);
+	});
+
+	socket.on("msg:preview:toggle", (data) => {
+		if (!_.isPlainObject(data)) {
+			return;
+		}
+
 		const networkAndChan = client.find(data.target);
+		const newState = Boolean(data.shown);
+
 		if (!networkAndChan) {
+			return;
+		}
+
+		// Process multiple message at once for /collapse and /expand commands
+		if (Array.isArray(data.messageIds)) {
+			for (const msgId of data.messageIds) {
+				const message = networkAndChan.chan.findMessage(msgId);
+
+				for (const preview of message.previews) {
+					preview.shown = newState;
+				}
+			}
+
 			return;
 		}
 
@@ -333,154 +529,265 @@ function initializeClient(socket, client, token) {
 		const preview = message.findPreview(data.link);
 
 		if (preview) {
-			preview.shown = data.shown;
+			preview.shown = newState;
 		}
 	});
 
-	socket.on("push:register", (subscription) => {
-		if (!client.isRegistered() || !client.config.sessions[token]) {
+	socket.on("mentions:get", () => {
+		socket.emit("mentions:list", client.mentions);
+	});
+
+	socket.on("mentions:hide", (msgId) => {
+		if (typeof msgId !== "number") {
 			return;
 		}
 
-		const registration = client.registerPushSubscription(client.config.sessions[token], subscription);
-
-		if (registration) {
-			client.manager.webPush.pushSingle(client, registration, {
-				type: "notification",
-				timestamp: Date.now(),
-				title: "The Lounge",
-				body: "🚀 Push notifications have been enabled"
-			});
-		}
+		client.mentions.splice(
+			client.mentions.findIndex((m) => m.msgId === msgId),
+			1
+		);
 	});
 
-	socket.on("push:unregister", () => {
-		if (!client.isRegistered()) {
-			return;
-		}
-
-		client.unregisterPushSubscription(token);
+	socket.on("mentions:hide_all", () => {
+		client.mentions = [];
 	});
 
-	socket.on("sign-out", () => {
-		delete client.config.sessions[token];
+	if (!Helper.config.public) {
+		socket.on("push:register", (subscription) => {
+			if (!Object.prototype.hasOwnProperty.call(client.config.sessions, token)) {
+				return;
+			}
 
-		client.manager.updateUser(client.name, {
-			sessions: client.config.sessions
-		}, (err) => {
-			if (err) {
-				log.error("Failed to update sessions for", client.name, err);
+			const registration = client.registerPushSubscription(
+				client.config.sessions[token],
+				subscription
+			);
+
+			if (registration) {
+				client.manager.webPush.pushSingle(client, registration, {
+					type: "notification",
+					timestamp: Date.now(),
+					title: "The Lounge",
+					body: "🚀 Push notifications have been enabled",
+				});
 			}
 		});
 
-		socket.emit("sign-out");
+		socket.on("push:unregister", () => client.unregisterPushSubscription(token));
+	}
+
+	const sendSessionList = () => {
+		const sessions = _.map(client.config.sessions, (session, sessionToken) => ({
+			current: sessionToken === token,
+			active: _.reduce(
+				client.attachedClients,
+				(count, attachedClient) => count + (attachedClient.token === sessionToken ? 1 : 0),
+				0
+			),
+			lastUse: session.lastUse,
+			ip: session.ip,
+			agent: session.agent,
+			token: sessionToken, // TODO: Ideally don't expose actual tokens to the client
+		}));
+
+		socket.emit("sessions:list", sessions);
+	};
+
+	socket.on("sessions:get", sendSessionList);
+
+	if (!Helper.config.public) {
+		socket.on("setting:set", (newSetting) => {
+			if (!_.isPlainObject(newSetting)) {
+				return;
+			}
+
+			if (
+				typeof newSetting.value === "object" ||
+				typeof newSetting.name !== "string" ||
+				newSetting.name[0] === "_"
+			) {
+				return;
+			}
+
+			// We do not need to do write operations and emit events if nothing changed.
+			if (client.config.clientSettings[newSetting.name] !== newSetting.value) {
+				client.config.clientSettings[newSetting.name] = newSetting.value;
+
+				// Pass the setting to all clients.
+				client.emit("setting:new", {
+					name: newSetting.name,
+					value: newSetting.value,
+				});
+
+				client.save();
+
+				if (newSetting.name === "highlights" || newSetting.name === "highlightExceptions") {
+					client.compileCustomHighlights();
+				} else if (newSetting.name === "awayMessage") {
+					if (typeof newSetting.value !== "string") {
+						newSetting.value = "";
+					}
+
+					client.awayMessage = newSetting.value;
+				}
+			}
+		});
+
+		socket.on("setting:get", () => {
+			if (!Object.prototype.hasOwnProperty.call(client.config, "clientSettings")) {
+				socket.emit("setting:all", {});
+				return;
+			}
+
+			const clientSettings = client.config.clientSettings;
+			socket.emit("setting:all", clientSettings);
+		});
+	}
+
+	socket.on("sign-out", (tokenToSignOut) => {
+		// If no token provided, sign same client out
+		if (!tokenToSignOut || typeof tokenToSignOut !== "string") {
+			tokenToSignOut = token;
+		}
+
+		if (!Object.prototype.hasOwnProperty.call(client.config.sessions, tokenToSignOut)) {
+			return;
+		}
+
+		delete client.config.sessions[tokenToSignOut];
+
+		client.save();
+
+		_.map(client.attachedClients, (attachedClient, socketId) => {
+			if (attachedClient.token !== tokenToSignOut) {
+				return;
+			}
+
+			const socketToRemove = manager.sockets.of("/").connected[socketId];
+
+			socketToRemove.emit("sign-out");
+			socketToRemove.disconnect();
+		});
+
+		// Do not send updated session list if user simply logs out
+		if (tokenToSignOut !== token) {
+			sendSessionList();
+		}
 	});
 
 	socket.join(client.id);
 
 	const sendInitEvent = (tokenToSend) => {
 		socket.emit("init", {
-			applicationServerKey: manager.webPush.vapidKeys.publicKey,
-			pushSubscription: client.config.sessions[token],
-			active: client.lastActiveChannel,
-			networks: client.networks,
-			token: tokenToSend
+			active: openChannel,
+			networks: client.networks.map((network) =>
+				network.getFilteredClone(openChannel, lastMessage)
+			),
+			token: tokenToSend,
 		});
+		socket.emit("commands", inputs.getCommands());
 	};
 
-	if (!Helper.config.public && token === null) {
+	if (Helper.config.public) {
+		sendInitEvent(null);
+	} else if (token === null) {
 		client.generateToken((newToken) => {
-			token = newToken;
+			token = client.calculateTokenHash(newToken);
+			client.attachedClients[socket.id].token = token;
 
-			client.updateSession(token, getClientIp(socket.request), socket.request);
+			client.updateSession(token, getClientIp(socket), socket.request);
 
-			client.manager.updateUser(client.name, {
-				sessions: client.config.sessions
-			}, (err) => {
-				if (err) {
-					log.error("Failed to update sessions for", client.name, err);
-				}
-			});
-
-			sendInitEvent(token);
+			sendInitEvent(newToken);
 		});
 	} else {
+		client.updateSession(token, getClientIp(socket), socket.request);
 		sendInitEvent(null);
 	}
 }
 
-function localAuth(client, user, password, callback) {
-	// If no user is found, or if the client has not provided a password,
-	// fail the authentication straight away
-	if (!client || !password) {
-		return callback(false);
+function getClientConfiguration() {
+	const config = _.pick(Helper.config, ["public", "lockNetwork", "useHexIp", "prefetch"]);
+
+	config.fileUpload = Helper.config.fileUpload.enable;
+	config.ldapEnabled = Helper.config.ldap.enable;
+
+	if (!config.lockNetwork) {
+		config.defaults = _.clone(Helper.config.defaults);
+	} else {
+		// Only send defaults that are visible on the client
+		config.defaults = _.pick(Helper.config.defaults, [
+			"name",
+			"nick",
+			"username",
+			"password",
+			"realname",
+			"join",
+		]);
 	}
 
-	// If this user has no password set, fail the authentication
-	if (!client.config.password) {
-		log.error(`User ${colors.bold(user)} with no local password set tried to sign in. (Probably a LDAP user)`);
-		return callback(false);
+	config.isUpdateAvailable = changelog.isUpdateAvailable;
+	config.applicationServerKey = manager.webPush.vapidKeys.publicKey;
+	config.version = pkg.version;
+	config.gitCommit = Helper.getGitCommit();
+	config.themes = themes.getAll();
+	config.defaultTheme = Helper.config.theme;
+	config.defaults.nick = Helper.getDefaultNick();
+	config.defaults.sasl = "";
+	config.defaults.saslAccount = "";
+	config.defaults.saslPassword = "";
+
+	if (Uploader) {
+		config.fileUploadMaxFileSize = Uploader.getMaxFileSize();
 	}
 
-	Helper.password
-		.compare(password, client.config.password)
-		.then((matching) => {
-			if (matching && Helper.password.requiresUpdate(client.config.password)) {
-				const hash = Helper.password.hash(password);
-
-				client.setPassword(hash, (success) => {
-					if (success) {
-						log.info(`User ${colors.bold(client.name)} logged in and their hashed password has been updated to match new security requirements`);
-					}
-				});
-			}
-
-			callback(matching);
-		}).catch((error) => {
-			log.error(`Error while checking users password. Error: ${error}`);
-		});
+	return config;
 }
 
-function ldapAuth(client, user, password, callback) {
-	var userDN = user.replace(/([,\\/#+<>;"= ])/g, "\\$1");
-	var bindDN = Helper.config.ldap.primaryKey + "=" + userDN + "," + Helper.config.ldap.baseDN;
+function getServerConfiguration() {
+	const config = _.clone(Helper.config);
 
-	var ldapclient = ldap.createClient({
-		url: Helper.config.ldap.url
-	});
+	config.stylesheets = packages.getStylesheets();
 
-	ldapclient.on("error", function(err) {
-		log.error("Unable to connect to LDAP server", err);
-		callback(!err);
-	});
-
-	ldapclient.bind(bindDN, password, function(err) {
-		if (!err && !client) {
-			if (!manager.addUser(user, null)) {
-				log.error("Unable to create new user", user);
-			}
-		}
-		ldapclient.unbind();
-		callback(!err);
-	});
+	return config;
 }
 
 function performAuthentication(data) {
+	if (!_.isPlainObject(data)) {
+		return;
+	}
+
 	const socket = this;
 	let client;
+	let token = null;
 
-	const finalInit = () => initializeClient(socket, client, data.token || null);
+	const finalInit = () =>
+		initializeClient(socket, client, token, data.lastMessage || -1, data.openChannel);
 
 	const initClient = () => {
-		client.ip = getClientIp(socket.request);
+		// Configuration does not change during runtime of TL,
+		// and the client listens to this event only once
+		if (!data.hasConfig) {
+			socket.emit("configuration", getClientConfiguration());
+
+			socket.emit(
+				"push:issubscribed",
+				token && client.config.sessions[token].pushSubscription ? true : false
+			);
+		}
+
+		client.config.browser = {
+			ip: getClientIp(socket),
+			isSecure: getClientSecure(socket),
+			language: getClientLanguage(socket),
+		};
 
 		// If webirc is enabled perform reverse dns lookup
 		if (Helper.config.webirc === null) {
 			return finalInit();
 		}
 
-		reverseDnsLookup(client.ip, (hostname) => {
-			client.hostname = hostname;
+		reverseDnsLookup(client.config.browser.ip, (hostname) => {
+			client.config.browser.hostname = hostname;
 
 			finalInit();
 		});
@@ -490,7 +797,7 @@ function performAuthentication(data) {
 		client = new Client(manager);
 		manager.clients.push(client);
 
-		socket.on("disconnect", function() {
+		socket.on("disconnect", function () {
 			manager.clients = _.without(manager.clients, client);
 			client.quit();
 		});
@@ -500,18 +807,35 @@ function performAuthentication(data) {
 		return;
 	}
 
+	if (typeof data.user !== "string") {
+		return;
+	}
+
 	const authCallback = (success) => {
 		// Authorization failed
 		if (!success) {
-			socket.emit("auth", {success: false});
+			if (!client) {
+				log.warn(
+					`Authentication for non existing user attempted from ${colors.bold(
+						getClientIp(socket)
+					)}`
+				);
+			} else {
+				log.warn(
+					`Authentication failed for user ${colors.bold(data.user)} from ${colors.bold(
+						getClientIp(socket)
+					)}`
+				);
+			}
+
+			socket.emit("auth:failed");
 			return;
 		}
 
 		// If authorization succeeded but there is no loaded user,
 		// load it and find the user again (this happens with LDAP)
 		if (!client) {
-			manager.loadUser(data.user);
-			client = manager.findClient(data.user);
+			client = manager.loadUser(data.user);
 		}
 
 		initClient();
@@ -520,27 +844,38 @@ function performAuthentication(data) {
 	client = manager.findClient(data.user);
 
 	// We have found an existing user and client has provided a token
-	if (client && data.token && typeof client.config.sessions[data.token] !== "undefined") {
-		client.updateSession(data.token, getClientIp(socket.request), socket.request);
+	if (client && data.token) {
+		const providedToken = client.calculateTokenHash(data.token);
 
-		authCallback(true);
-		return;
+		if (Object.prototype.hasOwnProperty.call(client.config.sessions, providedToken)) {
+			token = providedToken;
+
+			return authCallback(true);
+		}
 	}
 
 	// Perform password checking
-	if (!Helper.config.public && Helper.config.ldap.enable) {
-		ldapAuth(client, data.user, data.password, authCallback);
-	} else {
-		localAuth(client, data.user, data.password, authCallback);
-	}
+	Auth.auth(manager, client, data.user, data.password, authCallback);
 }
 
 function reverseDnsLookup(ip, callback) {
-	dns.reverse(ip, (err, hostnames) => {
-		if (!err && hostnames.length) {
-			return callback(hostnames[0]);
+	dns.reverse(ip, (reverseErr, hostnames) => {
+		if (reverseErr || hostnames.length < 1) {
+			return callback(ip);
 		}
 
-		callback(ip);
+		dns.resolve(hostnames[0], net.isIP(ip) === 6 ? "AAAA" : "A", (resolveErr, resolvedIps) => {
+			if (resolveErr || resolvedIps.length < 1) {
+				return callback(ip);
+			}
+
+			for (const resolvedIp of resolvedIps) {
+				if (ip === resolvedIp) {
+					return callback(hostnames[0]);
+				}
+			}
+
+			return callback(ip);
+		});
 	});
 }

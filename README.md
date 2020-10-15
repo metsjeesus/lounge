@@ -1,67 +1,77 @@
-# The Lounge
+<h1 align="center">
+	<img
+		width="300"
+		alt="The Lounge"
+		src="https://raw.githubusercontent.com/thelounge/thelounge/master/client/img/logo-vertical-transparent-bg.svg?sanitize=true">
+</h1>
 
-Modern web IRC client designed for self-hosting.
+<h3 align="center">
+	Modern web IRC client designed for self-hosting
+</h3>
 
-[![#thelounge IRC channel on freenode](https://img.shields.io/badge/freenode-%23thelounge-BA68C8.svg)](https://demo.thelounge.chat/)
-[![npm version](https://img.shields.io/npm/v/thelounge.svg)](https://www.npmjs.org/package/thelounge)
-[![Travis CI Build Status](https://img.shields.io/travis/thelounge/lounge/master.svg?label=linux+build)](https://travis-ci.org/thelounge/lounge)
-[![AppVeyor Build Status](https://img.shields.io/appveyor/ci/astorije/lounge/master.svg?label=windows+build)](https://ci.appveyor.com/project/astorije/lounge/branch/master)
-[![Dependencies Status](https://img.shields.io/david/thelounge/lounge.svg)](https://david-dm.org/thelounge/lounge)
+<p align="center">
+	<strong>
+		<a href="https://thelounge.chat/">Website</a>
+		•
+		<a href="https://thelounge.chat/docs">Docs</a>
+		•
+		<a href="https://demo.thelounge.chat/">Demo</a>
+	</strong>
+</p>
+<p align="center">
+	<a href="https://demo.thelounge.chat/"><img
+		alt="#thelounge IRC channel on freenode"
+		src="https://img.shields.io/badge/freenode-%23thelounge-415364.svg?colorA=ff9e18"></a>
+	<a href="https://yarn.pm/thelounge"><img
+		alt="npm version"
+		src="https://img.shields.io/npm/v/thelounge.svg?colorA=333a41&maxAge=3600"></a>
+	<a href="https://github.com/thelounge/thelounge/actions"><img
+		alt="Build Status"
+		src="https://github.com/thelounge/thelounge/workflows/Build/badge.svg"></a>
+	<a href="https://npm-stat.com/charts.html?package=thelounge&from=2016-02-12"><img
+		alt="Total downloads on npm"
+		src="https://img.shields.io/npm/dy/thelounge.svg?colorA=333a41&colorB=007dc7&maxAge=3600&label=Downloads"></a>
+</p>
+
+<p align="center">
+	<img src="https://raw.githubusercontent.com/thelounge/thelounge.github.io/master/img/thelounge-screenshot.png" width="550">
+</p>
 
 ## Overview
 
-* **Modern features brought to IRC.** Push notifications, link previews, new message markers, and more bring IRC to the 21st century.
-* **Always connected.** Remains connected to IRC servers while you are offline.
-* **Cross platform.** It doesn't matter what OS you use, it just works wherever Node.js runs.
-* **Responsive interface.** The client works smoothly on every desktop, smartphone and tablet.
-* **Synchronized experience.** Always resume where you left off no matter what device.
+- **Modern features brought to IRC.** Push notifications, link previews, new message markers, and more bring IRC to the 21st century.
+- **Always connected.** Remains connected to IRC servers while you are offline.
+- **Cross platform.** It doesn't matter what OS you use, it just works wherever Node.js runs.
+- **Responsive interface.** The client works smoothly on every desktop, smartphone and tablet.
+- **Synchronized experience.** Always resume where you left off no matter what device.
 
-To learn more about configuration, usage and features of The Lounge, take a look at [the website](https://thelounge.github.io).
-
-<p align="center">
-	<img src="https://user-images.githubusercontent.com/8675906/28143204-53116e8c-6719-11e7-992b-d1ba442c6c37.png" width="550">
-</p>
+To learn more about configuration, usage and features of The Lounge, take a look at [the website](https://thelounge.chat).
 
 The Lounge is the official and community-managed fork of [Shout](https://github.com/erming/shout), by [Mattias Erming](https://github.com/erming).
 
 ## Installation and usage
 
-The Lounge requires [Node.js](https://nodejs.org/) v4 or more recent.
+The Lounge requires latest [Node.js](https://nodejs.org/) LTS version or more recent.
+[Yarn package manager](https://yarnpkg.com/) is also recommended.  
+If you want to install with npm, `--unsafe-perm` is required for a correct install.
 
-### Running stable releases from npm (recommended)
+### Running stable releases
 
-Run this in a terminal to install (or upgrade) the latest stable release from
-[npm](https://www.npmjs.com/):
-
-```sh
-[sudo] npm install -g thelounge
-```
-
-When installation is complete, run:
-
-```sh
-lounge start
-```
-
-For more information, read the [documentation](https://thelounge.github.io/docs/), [wiki](https://github.com/thelounge/lounge/wiki), or run:
-
-```sh
-lounge --help
-```
+Please refer to the [install and upgrade documentation on our website](https://thelounge.chat/docs/install-and-upgrade) for all available installation methods.
 
 ### Running from source
 
 The following commands install and run the development version of The Lounge:
 
 ```sh
-git clone https://github.com/thelounge/lounge.git
-cd lounge
-npm install
-NODE_ENV=production npm run build
-npm start
+git clone https://github.com/thelounge/thelounge.git
+cd thelounge
+yarn install
+NODE_ENV=production yarn build
+yarn start
 ```
 
-When installed like this, npm doesn't create a `lounge` executable. Use `npm start -- <command>` to run subcommands.
+When installed like this, `thelounge` executable is not created. Use `node index <command>` to run commands.
 
 ⚠️ While it is the most recent codebase, this is not production-ready! Run at
 your own risk. It is also not recommended to run this as root.
@@ -73,6 +83,7 @@ fork.
 
 Before submitting any change, make sure to:
 
-- Read the [Contributing instructions](https://github.com/thelounge/lounge/blob/master/CONTRIBUTING.md#contributing)
-- Run `npm test` to execute linters and test suite
-- Run `npm run build` if you change or add anything in `client/js` or `client/views`
+- Read the [Contributing instructions](https://github.com/thelounge/thelounge/blob/master/.github/CONTRIBUTING.md#contributing)
+- Run `yarn test` to execute linters and test suite
+- Run `yarn build` if you change or add anything in `client/js` or `client/views`
+- `yarn dev` can be used to start The Lounge with hot module reloading

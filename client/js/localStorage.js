@@ -1,19 +1,43 @@
 "use strict";
 
-module.exports = {
-	set: function(key, value) {
+// This is a simple localStorage wrapper because browser can throw errors
+// in different situations, including:
+// - Unable to store data if storage is full
+// - Local storage is blocked if "third-party cookies and site data" is disabled
+//
+// For more details, see:
+// https://stackoverflow.com/q/14555347/1935861
+// https://github.com/thelounge/thelounge/issues/2699
+// https://www.chromium.org/for-testers/bug-reporting-guidelines/uncaught-securityerror-failed-to-read-the-localstorage-property-from-window-access-is-denied-for-this-document
+
+export default {
+	set(key, value) {
 		try {
 			window.localStorage.setItem(key, value);
 		} catch (e) {
-			// Do nothing. If we end up here, web storage quota exceeded, or user is
-			// in Safari's private browsing where localStorage's setItem is not
-			// available. See http://stackoverflow.com/q/14555347/1935861.
+			//
 		}
 	},
-	get: function(key) {
-		return window.localStorage.getItem(key);
+	get(key) {
+		try {
+			return window.localStorage.getItem(key);
+		} catch (e) {
+			// Return null as if data is not set
+			return null;
+		}
 	},
-	remove: function(key, value) {
-		window.localStorage.removeItem(key, value);
-	}
+	remove(key) {
+		try {
+			window.localStorage.removeItem(key);
+		} catch (e) {
+			//
+		}
+	},
+	clear() {
+		try {
+			window.localStorage.clear();
+		} catch (e) {
+			//
+		}
+	},
 };
